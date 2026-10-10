@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Grammar Poker — New Project</title>
+<style>
+:root{--bg:#0b2c25;--felt:#14513f;--panel:#123b31;--gold:#f4c76b;--cream:#fff8e9;--muted:#b9d1c5;--red:#c83d4b;--blue:#4b8bd8;--shadow:0 12px 28px #03150f88}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#1b614b 0,#0b2c25 65%);color:var(--cream);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;min-height:100vh}
+header{padding:18px 16px 8px;text-align:center}h1{margin:0;font-size:clamp(1.7rem,5vw,2.7rem);letter-spacing:.03em}header p{margin:6px 0;color:var(--muted)}
+main{max-width:1100px;margin:auto;padding:12px;display:grid;gap:14px}.panel{background:#10392fdd;border:1px solid #ffffff20;border-radius:18px;padding:14px;box-shadow:var(--shadow)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row>*{flex:1;min-width:130px}
+input,select,button{font:inherit;border-radius:11px;padding:11px 12px;border:1px solid #ffffff30}
+input,select{background:#09271f;color:var(--cream);min-width:0}button{cursor:pointer;font-weight:750;background:var(--gold);color:#17271e;border:0}button.secondary{background:#e8f0e9;color:#173a2e}button.danger{background:#c83d4b;color:white}button:disabled{opacity:.45;cursor:not-allowed}
+.small{font-size:.9rem;color:var(--muted)}.status{padding:10px 12px;border-radius:12px;background:#08251e;margin-top:10px;min-height:42px}
+h2{font-size:1.1rem;margin:0 0 10px}.hidden{display:none!important}
+.scoreboard{display:flex;gap:8px;flex-wrap:wrap}.score{padding:9px 12px;background:#08271f;border:1px solid #ffffff20;border-radius:12px;min-width:120px}.score.active{outline:2px solid var(--gold)}.score b{display:block}.score span{font-size:.85rem;color:var(--muted)}
+.piles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.pile{padding:12px 8px;text-align:center;background:#09291f;border:1px solid #ffffff25;border-radius:14px}.pile .suit{font-size:1.6rem}.pile strong{display:block}.pile .count{color:var(--muted);font-size:.85rem}
+.tabletop{min-height:112px;background:#0a3025;border:1px dashed #ffffff40;border-radius:15px;padding:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.played-card{background:var(--cream);color:#17382c;border-radius:9px;padding:9px 12px;min-width:62px;text-align:center;box-shadow:0 4px 0 #b7b19e;font-weight:800}.played-card small{display:block;font-size:.65rem;opacity:.7;text-transform:uppercase}.arrow{color:var(--gold);font-weight:900}
+.hand{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:9px}.card{position:relative;min-height:132px;background:linear-gradient(150deg,#fffdf5,#f1e8d4);color:#18372d;border-radius:12px;border:2px solid #fff9e8;box-shadow:0 5px 0 #c3b79d;display:flex;flex-direction:column;justify-content:space-between;padding:8px;cursor:pointer;user-select:none}.card .corner{font-size:.72rem;font-weight:900}.card .word{font-size:1.08rem;font-weight:900;text-align:center;overflow-wrap:anywhere}.card .cat{font-size:.64rem;text-align:center;letter-spacing:.06em;font-weight:800;opacity:.7}.card.red{color:#b6293a}.card.black{color:#193e78}.card.selected{transform:translateY(-7px);outline:3px solid var(--gold);box-shadow:0 9px 0 #c3b79d}
+.card .mini{font-size:.7rem}
+.footer-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.footer-actions button{flex:1;min-width:130px}
+.tag{display:inline-block;padding:4px 8px;border-radius:99px;background:#f4c76b;color:#1b3025;font-size:.78rem;font-weight:800}
+@media(max-width:560px){.piles{gap:5px}.pile{padding:9px 4px;font-size:.85rem}.card{min-height:116px;padding:6px}.card .word{font-size:.98rem}.panel{padding:11px}}
+</style>
+</head>
+<body>
+<header><h1>🃏 GRAMMAR POKER</h1><p>Build a correct English sentence. Play your cards. Score 5 points!</p></header>
+<main>
+<section class="panel" id="setup">
+<h2>🎲 Buat room atau gabung room</h2>
+<p class="small">Versi proyek baru ini memakai Firebase Realtime Database untuk menyinkronkan pemain di perangkat berbeda. Isi konfigurasi Firebase di kode sebelum digunakan online.</p>
+<div class="row"><input id="playerName" maxlength="18" placeholder="Nama pemain"><input id="roomCode" maxlength="8" placeholder="Kode room (untuk bergabung)"></div>
+<div class="row" style="margin-top:8px"><button id="createBtn">Buat Room Baru</button><button class="secondary" id="joinBtn">Gabung Room</button></div>
+<div class="status" id="setupStatus">Masukkan nama. Buat room baru atau masukkan kode room untuk bergabung.</div>
+</section>
+
+<section class="panel hidden" id="game">
+<div class="row" style="align-items:center"><div><span class="tag" id="roomLabel">ROOM —</span><h2 style="margin-top:8px">Meja Permainan</h2></div><div style="text-align:right"><span class="small">Giliran sekarang</span><strong id="turnLabel">—</strong></div></div>
+<h2>🏆 Skor pemain</h2><div class="scoreboard" id="scoreboard"></div>
+<h2 style="margin-top:16px">🂠 Tiga tumpukan kartu</h2>
+<div class="piles">
+<div class="pile"><div class="suit">♠</div><strong>SUBJECT</strong><div class="count" id="subjectCount">— kartu</div></div>
+<div class="pile"><div class="suit" style="color:#f06a78">♥</div><strong>TO BE</strong><div class="count" id="toBeCount">— kartu</div></div>
+<div class="pile"><div class="suit" style="color:#e9bd52">♦</div><strong>COMPLEMENT</strong><div class="count" id="complementCount">— kartu</div></div>
+</div>
+<h2 style="margin-top:16px">🟩 Kalimat yang sedang disusun</h2>
+<div class="tabletop" id="sentenceTable"><span class="small">Belum ada kartu di meja. Pemain yang mendapat giliran dapat memulai kalimat.</span></div>
+<div class="row" style="margin-top:10px"><div><span class="small">Pemain aktif</span><div id="activeHint">—</div></div><div><span class="small">Kartu di tangan</span><div id="handCount">—</div></div></div>
+<h2 style="margin-top:16px">🃏 Kartu kamu</h2><p class="small">Pilih satu kartu untuk dimainkan. Pemain aktif boleh memainkan beberapa kartu bergantian selama masih bisa melanjutkan atau menyelesaikan kalimat. Pilih beberapa kartu, lalu tekan “Susun kalimat” untuk mengirim kalimat lengkap dari kartu pilihanmu.</p>
+<div class="hand" id="hand"></div>
+<div class="footer-actions"><button id="playBtn">Susun kalimat (+5 poin)</button><button class="secondary" id="drawBtn">Ambil kartu pengganti</button><button class="secondary" id="passBtn">Tidak bisa lanjut — oper giliran</button></div>
+<div class="status" id="gameStatus">Menunggu room…</div>
+<p class="small">Aturan: setiap kalimat benar bernilai 5 poin. Kartu kalimat yang berhasil dibuat dibuang. Pemain mengisi kembali kartu dari kategori yang sama jika tersedia. Target jumlah kartu 3–5; jika deck kategori kosong, jumlah kartu boleh kurang dari 3. Kartu yang telah dibuang tidak digunakan kembali.</p>
+</section>
+</main>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+/* GANTI konfigurasi ini dengan Firebase Web App config milik proyek baru. */
+const firebaseConfig = {
+  apiKey: "PASTE_API_KEY_HERE",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "YOUR_PROJECT",
+  storageBucket: "YOUR_PROJECT.firebasestorage.app",
+  messagingSenderId: "PASTE_SENDER_ID",
+  appId: "PASTE_APP_ID"
+};
+
+const $ = id => document.getElementById(id);
+const suits = {subject:"♠",tobe:"♥",complement:"♦"};
+const templates = {
+ subject:["I","You","He","She","It","We","They","I","You","He","She","We","They","It"],
+ tobe:["am","are","is","is","is","are","are","am","are","is","is","are","are","is"],
+ complement:["happy","a student","a teacher","tall","kind","at school","ready","my friend","a good student","in class","very helpful","strong","a doctor","at home"]
+};
+let app, db, auth, uid=null, roomId=null, playerKey=null, roomData=null, selected=new Set(), roomListener=null;
+function configReady(){return firebaseConfig.apiKey!=="PASTE_API_KEY_HERE" && firebaseConfig.projectId!=="YOUR_PROJECT";}
+function showStatus(id,msg){$(id).textContent=msg;}
+function shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function newDecks(){return {subject:shuffle([...templates.subject]),tobe:shuffle([...templates.tobe]),complement:shuffle([...templates.complement])};}
+function cardObj(cat,word){return {id:Math.random().toString(36).slice(2)+Date.now().toString(36),cat,word};}
+function drawOne(room,cat){let pile=room.decks[cat];if(!pile||!pile.length)return null;return cardObj(cat,pile.pop());}
+function getMe(){return roomData?.players?.[uid];}
+function activeId(){return roomData?.turnOrder?.[roomData.turnIndex||0]||null;}
+function isMyTurn(){return !!roomData && activeId()===uid;}
+function isValidSentence(cards){
+ const words=cards.map(c=>c.word.toLowerCase());
+ if(words.length<2)return false;
+ const subj=cards.find(c=>c.cat==="subject"), verb=cards.find(c=>c.cat==="tobe"), comp=cards.filter(c=>c.cat==="complement");
+ if(!subj||!verb||!comp.length)return false;
+ const allowed={i:"am",you:"are",we:"are",they:"are",he:"is",she:"is",it:"is"};
+ if(allowed[subj.word.toLowerCase()]!==verb.word.toLowerCase())return false;
+ // A sentence must use every selected card; allow a complement phrase of one card.
+ return cards.length===3 && comp.length===1;
+}
+function sentenceText(cards){return cards.map(c=>c.word).join(" ")+ ".";}
+function makeRoomState(name){
+ const decks=newDecks(), hand=[];
+ for(const cat of ["subject","tobe","complement","subject","tobe"]) {const c=drawOne({decks},cat);if(c)hand.push(c);}
+ const p={};p[uid]={name,score:0,hand,joinedAt:Date.now()};
+ return {players:p,turnOrder:[uid],turnIndex:0,decks,table:[],discard:[],createdAt:Date.now(),lastMessage:"Room dibuat. Susun kalimat yang benar!"};
+}
+function firebaseInit(){
+ if(!configReady()) {showStatus("setupStatus","Konfigurasi Firebase belum diisi di file HTML. Isi firebaseConfig terlebih dahulu sebelum online.");return false;}
+ if(!firebase.apps.length)firebase.initializeApp(firebaseConfig);
+ app=firebase.app();db=firebase.database();auth=firebase.auth();return true;
+}
+async function ensureAuth(){if(!auth.currentUser)await auth.signInAnonymously();uid=auth.currentUser.uid;}
+function render(){
+ if(!roomData)return;
+ $("setup").classList.add("hidden");$("game").classList.remove("hidden");
+ $("roomLabel").textContent="ROOM "+roomId;
+ const turn=roomData.players?.[activeId()];
+ $("turnLabel").textContent=turn?.name||"—";
+ $("activeHint").textContent=isMyTurn()?"Giliran kamu!":`Menunggu ${turn?.name||"pemain"}…`;
+ const scores=$("scoreboard");scores.innerHTML="";
+ (roomData.turnOrder||[]).forEach(id=>{const p=roomData.players?.[id];if(!p)return;const el=document.createElement("div");el.className="score"+(id===activeId()?" active":"");el.innerHTML=`<b>${escapeHtml(p.name)} ${id===uid?"(kamu)":""}</b><span>⭐ ${p.score||0} poin · ${p.hand?.length||0} kartu</span>`;scores.appendChild(el);});
+ $("subjectCount").textContent=(roomData.decks?.subject?.length||0)+" kartu tersisa";
+ $("toBeCount").textContent=(roomData.decks?.tobe?.length||0)+" kartu tersisa";
+ $("complementCount").textContent=(roomData.decks?.complement?.length||0)+" kartu tersisa";
+ const table=$("sentenceTable");table.innerHTML="";
+ if(!(roomData.table||[]).length)table.innerHTML='<span class="small">Belum ada kartu di meja. Pemain aktif dapat memulai kalimat.</span>';
+ else roomData.table.forEach(c=>{const el=document.createElement("div");el.className="played-card";el.innerHTML=`<small>${c.cat}</small>${escapeHtml(c.word)}`;table.appendChild(el);});
+ const me=getMe(), hand=$("hand");hand.innerHTML="";
+ (me?.hand||[]).forEach(c=>{const el=document.createElement("div");el.className="card "+(c.cat==="tobe"?"red":c.cat==="complement"?"black":"")+(selected.has(c.id)?" selected":"");el.innerHTML=`<div class="corner">${suits[c.cat]} <span class="mini">${c.cat==="subject"?"S":c.cat==="tobe"?"TB":"C"}</span></div><div class="word">${escapeHtml(c.word)}</div><div class="cat">${c.cat==="subject"?"SUBJECT PRONOUN":c.cat==="tobe"?"TO BE":"COMPLEMENT"}</div>`;el.onclick=()=>{if(!isMyTurn())return;selected.has(c.id)?selected.delete(c.id):selected.add(c.id);render();};hand.appendChild(el);});
+ $("handCount").textContent=(me?.hand?.length||0)+" / 5";
+ $("playBtn").disabled=!isMyTurn()||selected.size!==3;
+ $("drawBtn").disabled=!isMyTurn();
+ $("passBtn").disabled=!isMyTurn();
+ showStatus("gameStatus",roomData.lastMessage||"Permainan berlangsung.");
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));}
+function listenRoom(){
+ if(roomListener)db.ref("rooms/"+roomId).off("value",roomListener);
+ roomListener=snap=>{roomData=snap.val();selected.clear();if(roomData)render();};
+ db.ref("rooms/"+roomId).on("value",roomListener);
+}
+async function createRoom(){
+ const name=$("playerName").value.trim()||"Player";
+ if(!firebaseInit())return;
+ try{await ensureAuth();roomId=Math.random().toString(36).slice(2,7).toUpperCase();playerKey=uid;
+ const state=makeRoomState(name);await db.ref("rooms/"+roomId).set(state);listenRoom();showStatus("setupStatus","Room dibuat.");}
+ catch(e){showStatus("setupStatus","Gagal membuat room: "+e.message);}
+}
+async function joinRoom(){
+ const name=$("playerName").value.trim()||"Player", code=$("roomCode").value.trim().toUpperCase();
+ if(!code){showStatus("setupStatus","Masukkan kode room terlebih dahulu.");return;}
+ if(!firebaseInit())return;
+ try{await ensureAuth();const ref=db.ref("rooms/"+code),snap=await ref.once("value");if(!snap.exists()){showStatus("setupStatus","Room tidak ditemukan. Periksa kode room.");return;}
+ roomId=code;const state=snap.val();if(state.players?.[uid]){listenRoom();return;}
+ const hand=[];for(const cat of ["subject","tobe","complement","subject","tobe"]){const c=drawOne(state,cat);if(c)hand.push(c);}
+ state.players=state.players||{};state.players[uid]={name,score:0,hand,joinedAt:Date.now()};state.turnOrder=state.turnOrder||[];state.turnOrder.push(uid);
+ await ref.set(state);listenRoom();}
+ catch(e){showStatus("setupStatus","Gagal bergabung: "+e.message);}
+}
+async function updateRoom(mutator){if(!roomId||!db)return;const ref=db.ref("rooms/"+roomId);await ref.transaction(state=>{if(!state)return state;mutator(state);return state;});}
+function nextTurn(state){const n=state.turnOrder?.length||0;if(n)state.turnIndex=((state.turnIndex||0)+1)%n;}
+$("createBtn").onclick=createRoom;$("joinBtn").onclick=joinRoom;
+$("playBtn").onclick=async()=>{
+ if(!isMyTurn())return;
+ const me=getMe(), cards=(me?.hand||[]).filter(c=>selected.has(c.id));
+ if(cards.length!==3){showStatus("gameStatus","Pilih tepat 3 kartu: satu Subject, satu To Be, dan satu Complement.");return;}
+ if(!isValidSentence(cards)){showStatus("gameStatus","Kalimat belum benar. Gunakan pasangan Subject + To Be yang sesuai dan satu Complement.");return;}
+ await updateRoom(state=>{
+  const p=state.players[uid];if(!p)return;
+  const ids=new Set(cards.map(c=>c.id));p.hand=p.hand.filter(c=>!ids.has(c.id));
+  cards.forEach(c=>state.discard.push({...c,by:uid,at:Date.now()}));
+  p.score=(p.score||0)+5;state.table=[];
+  // Refill each used category from that same category's deck, up to 5 cards.
+  for(const c of cards){if(p.hand.length>=5)break;const replacement=drawOne(state,c.cat);if(replacement)p.hand.push(replacement);}
+  state.lastMessage=`${p.name} menyusun “${sentenceText(cards)}” dengan benar dan mendapat 5 poin.`;
+  // Same player continues if they still have a possible complete sentence; otherwise they can pass.
+ });
+ selected.clear();
+};
+$("drawBtn").onclick=async()=>{
+ if(!isMyTurn())return;
+ await updateRoom(state=>{
+  const p=state.players[uid];if(!p)return;
+  if(p.hand.length>=5){state.lastMessage="Kartu kamu sudah 5. Tidak perlu mengambil kartu.";return;}
+  // Only draw from a category where the player is short, choosing the category with the fewest cards in hand.
+  const counts={subject:0,tobe:0,complement:0};p.hand.forEach(c=>counts[c.cat]++);
+  const cat=["subject","tobe","complement"].filter(c=>state.decks[c]?.length).sort((a,b)=>counts[a]-counts[b])[0];
+  if(!cat){state.lastMessage="Semua deck kategori sudah habis.";return;}
+  const card=drawOne(state,cat);if(card)p.hand.push(card);
+  state.lastMessage=`${p.name} mengambil 1 kartu ${cat.toUpperCase()}.`;
+ });
+};
+$("passBtn").onclick=async()=>{
+ if(!isMyTurn())return;
+ await updateRoom(state=>{const p=state.players[uid];if(!p)return;state.lastMessage=`${p.name} tidak bisa melanjutkan dan mengoper giliran.`;nextTurn(state);});
+ selected.clear();
+};
+</script>
+</body>
+</html>
