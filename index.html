@@ -603,10 +603,7 @@ async function initializeFirebase() {
     setStatus("Terhubung! Silakan buat room atau gabung room.");
   } catch (error) {
     console.error(error);
-    setStatus(
-      "Gagal login Firebase: " + error.message +
-      "\nPeriksa Anonymous Authentication dan Firebase Rules."
-    );
+    setStatus("Gagal login Firebase: " + error.message);
   }
 }
 
