@@ -135,9 +135,33 @@ function render(){
 }
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));}
 function listenRoom(){
- if(roomListener)db.ref("rooms/"+roomId).off("value",roomListener);
- roomListener=snap=>{roomData=snap.val();selected.clear();if(roomData)render();};
- db.ref("rooms/"+roomId).on("value",roomListener);
+ if(roomListener){
+   db.ref("rooms/"+roomId).off("value",roomListener);
+ }
+
+ roomListener = snap => {
+   roomData = snap.val();
+
+   // Hapus hanya pilihan kartu yang sudah tidak ada di tangan.
+   const handIds = new Set(
+     (getMe()?.hand || []).map(card => card.id)
+   );
+
+   selected = new Set(
+     [...selected].filter(id => handIds.has(id))
+   );
+
+   if(roomData) render();
+ };
+
+ db.ref("rooms/"+roomId).on(
+   "value",
+   roomListener,
+   error => showStatus(
+     "gameStatus",
+     "Gagal membaca room: " + error.message
+   )
+ );
 }
 async function createRoom(){
  const name=$("playerName").value.trim()||"Player";
