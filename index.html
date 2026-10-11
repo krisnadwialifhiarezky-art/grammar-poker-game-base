@@ -793,14 +793,6 @@ async function joinRoom() {
     return;
   }
 
-  if (!/^[A-Z0-9]{5,8}$/.test(code)) {
-    showStatus(
-      "setupStatus",
-      "Format kode room tidak valid."
-    );
-    return;
-  }
-
   // 2. Pastikan Firebase tersedia
   if (!firebaseInit()) {
     return;
