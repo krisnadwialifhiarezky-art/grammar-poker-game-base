@@ -426,3 +426,835 @@ input {
 <footer style="max-width:1100px;margin:auto;padding:16px;color:#bdd0c5">
   Grammar Poker · Firebase Multiplayer
 </footer>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCsYQDXI9WINBfrzhDx-L_e-OQ6-3SzpNA",
+  authDomain: "grammar-poker-game-base.firebaseapp.com",
+  databaseURL: "https://grammar-poker-game-base-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "grammar-poker-game-base",
+  storageBucket: "grammar-poker-game-base.firebasestorage.app",
+  messagingSenderId: "631191441192",
+  appId: "1:631191441192:web:75fcfb94d576105cd30a1d",
+  measurementId: "G-C8G0N46BTL"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const auth = firebase.auth();
+const db = firebase.database();
+
+const $ = id => document.getElementById(id);
+
+let currentUser = null;
+let currentRoom = null;
+let roomListener = null;
+let roomState = null;
+let busy = false;
+
+function setStatus(message) {
+  $("setupStatus").textContent = message;
+}
+
+function randomCode() {
+  return Math.random().toString(36).substring(2, 7).toUpperCase();
+}
+
+function shuffle(array) {
+  const result = [...array];
+
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+
+  return result;
+}
+
+const subjects = [
+  "I", "You", "We", "They", "He", "She", "It",
+  "My brother", "My sister", "The teacher", "The students",
+  "My friends", "Ali", "Siti", "The cat", "The dog",
+  "My parents", "Our class", "This boy", "Those girls"
+];
+
+const tobes = [
+  "am", "are", "are", "are", "is", "is", "is",
+  "is", "is", "is", "are", "are", "is", "is",
+  "is", "is", "are", "is", "is", "are"
+];
+
+const complements = [
+  "happy", "kind", "a student", "a teacher", "at home",
+  "in the classroom", "very tall", "my friend", "ready",
+  "hungry", "tired", "clever", "a good player",
+  "in the garden", "excited", "strong", "helpful",
+  "a doctor", "beautiful", "funny"
+];
+
+function makeDeck() {
+  const cards = [];
+
+  subjects.forEach((word, i) => {
+    cards.push({
+      id: "S" + i,
+      word,
+      type: "subject"
+    });
+  });
+
+  tobes.forEach((word, i) => {
+    cards.push({
+      id: "T" + i,
+      word,
+      type: "tobe"
+    });
+  });
+
+  complements.forEach((word, i) => {
+    cards.push({
+      id: "C" + i,
+      word,
+      type: "complement"
+    });
+  });
+
+  return shuffle(cards);
+}
+
+function dealCards(deck, count = 5) {
+  return deck.splice(0, Math.min(count, deck.length));
+}
+
+function makeGame(hostName) {
+  const deck = makeDeck();
+
+  const host = {
+    uid: currentUser.uid,
+    name: hostName,
+    score: 0,
+    hand: dealCards(deck),
+    joinedAt: Date.now()
+  };
+
+  return {
+    status: "waiting",
+    hostUid: currentUser.uid,
+    players: {
+      [currentUser.uid]: host
+    },
+    playerOrder: [currentUser.uid],
+    deck,
+    discard: [],
+    board: [],
+    turnIndex: 0,
+    lastMessage: "Room dibuat. Bagikan kode kepada teman!",
+    createdAt: Date.now()
+  };
+}
+
+function currentPlayerId(state = roomState) {
+  if (!state || !state.playerOrder || !state.playerOrder.length) {
+    return null;
+  }
+
+  return state.playerOrder[
+    state.turnIndex % state.playerOrder.length
+  ];
+}
+
+function myTurn() {
+  return Boolean(
+    roomState &&
+    roomState.status === "playing" &&
+    currentPlayerId() === currentUser.uid
+  );
+}
+
+async function initializeFirebase() {
+  setStatus("Menghubungkan ke Firebase...");
+
+  try {
+    const credential = await auth.signInAnonymously();
+    currentUser = credential.user;
+
+    setStatus("Terhubung ke Firebase. Silakan buat atau gabung room.");
+  } catch (error) {
+    console.error(error);
+    setStatus("Gagal terhubung: " + error.message);
+  }
+}
+
+function showGame(code) {
+  $("setupPanel").classList.add("hidden");
+  $("gamePanel").classList.remove("hidden");
+  $("roomLabel").textContent = code;
+}
+
+function attachRoom(code) {
+  if (roomListener && currentRoom) {
+    db.ref("rooms/" + currentRoom).off("value", roomListener);
+  }
+
+  currentRoom = code;
+  showGame(code);
+
+  const ref = db.ref("rooms/" + code);
+
+  roomListener = snapshot => {
+    if (!snapshot.exists()) {
+      $("gameStatus").textContent = "Room tidak ditemukan.";
+      return;
+    }
+
+    roomState = snapshot.val();
+    renderGame();
+  };
+
+  ref.on("value", roomListener, error => {
+    console.error(error);
+    $("gameStatus").textContent =
+      "Gagal membaca room: " + error.message;
+  });
+}
+
+async function createRoom() {
+  if (!currentUser || busy) return;
+
+  const name = $("playerName").value.trim();
+
+  if (!name) {
+    setStatus("Masukkan nama pemain terlebih dahulu.");
+    return;
+  }
+
+  busy = true;
+  $("createBtn").disabled = true;
+
+  try {
+    let code;
+    let created = false;
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      code = randomCode();
+
+      const result = await db.ref("rooms/" + code).transaction(
+        existing => {
+          if (existing !== null) return;
+          return makeGame(name);
+        },
+        undefined,
+        false
+      );
+
+      if (result.committed) {
+        created = true;
+        break;
+      }
+    }
+
+    if (!created) {
+      throw new Error("Tidak berhasil membuat room. Coba lagi.");
+    }
+
+    $("roomCode").value = code;
+    attachRoom(code);
+  } catch (error) {
+    console.error(error);
+    setStatus("Gagal membuat room: " + error.message);
+  } finally {
+    busy = false;
+    $("createBtn").disabled = false;
+  }
+}
+
+async function joinRoom() {
+  if (!currentUser || busy) return;
+
+  const name = $("playerName").value.trim();
+  const code = $("roomCode").value.trim().toUpperCase();
+
+  if (!name || !code) {
+    setStatus("Masukkan nama pemain dan kode room.");
+    return;
+  }
+
+  busy = true;
+  $("joinBtn").disabled = true;
+
+  try {
+    const ref = db.ref("rooms/" + code);
+
+    const result = await ref.transaction(state => {
+      if (!state || !state.players || !state.playerOrder) return;
+
+      if (state.players[currentUser.uid]) {
+        return state;
+      }
+
+      if (state.status !== "waiting") return;
+
+      if (state.playerOrder.length >= 6) return;
+
+      const deck = state.deck || [];
+      const hand = dealCards(deck, 5);
+
+      state.deck = deck;
+
+      state.players[currentUser.uid] = {
+        uid: currentUser.uid,
+        name,
+        score: 0,
+        hand,
+        joinedAt: Date.now()
+      };
+
+      state.playerOrder.push(currentUser.uid);
+
+      state.lastMessage = name + " bergabung ke room.";
+
+      return state;
+    });
+
+    if (!result.committed) {
+      throw new Error(
+        "Room tidak ditemukan, sudah dimulai, atau sudah penuh."
+      );
+    }
+
+    attachRoom(code);
+  } catch (error) {
+    console.error(error);
+    setStatus("Gagal bergabung: " + error.message);
+  } finally {
+    busy = false;
+    $("joinBtn").disabled = false;
+  }
+}
+// ========================================
+// MENAMPILKAN PERMAINAN
+// ========================================
+
+function escapeHTML(value) {
+  return String(value ?? "").replace(/[&<>"']/g, char => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[char]);
+}
+
+function renderGame() {
+  if (!roomState || !currentUser) return;
+
+  const state = roomState;
+  const players = state.players || {};
+  const order = state.playerOrder || [];
+  const me = players[currentUser.uid];
+
+  if (!me) {
+    $("gameStatus").textContent =
+      "Kamu tidak lagi terdaftar di room ini.";
+    return;
+  }
+
+  $("deckCount").textContent = (state.deck || []).length;
+  $("discardCount").textContent = (state.discard || []).length;
+  $("playerCount").textContent = order.length + "/6";
+
+  $("gameStatus").textContent =
+    state.lastMessage || "Permainan siap.";
+
+  const turnId = currentPlayerId();
+  const turnPlayer = players[turnId];
+
+  if (state.status === "waiting") {
+    $("turnBanner").textContent =
+      "⏳ Menunggu pemain. Host dapat memulai permainan.";
+  } else if (state.status === "finished") {
+    $("turnBanner").textContent = "🏆 Permainan selesai!";
+  } else {
+    $("turnBanner").textContent =
+      "🎯 Giliran: " + (turnPlayer ? turnPlayer.name : "-") +
+      (turnId === currentUser.uid ? " — Giliranmu!" : "");
+  }
+
+  // Papan penyusunan kalimat
+  const board = state.board || [];
+
+  if (board.length === 0) {
+    $("board").innerHTML =
+      '<div>Belum ada kartu di meja.</div>' +
+      '<div class="note">Mulai dengan Subject.</div>';
+  } else {
+    $("board").innerHTML =
+      '<div class="boardcards">' +
+      board.map(card =>
+        '<div class="wordcard ' + escapeHTML(card.type) + '">' +
+        escapeHTML(card.word) +
+        '</div>'
+      ).join("") +
+      '</div>' +
+      '<div class="note">' +
+      board.length + ' dari 3 kartu kalimat' +
+      '</div>';
+  }
+
+  // Kartu pemain
+  const hand = me.hand || [];
+
+  $("hand").innerHTML = hand.map(card => {
+    const category = card.type === "subject"
+      ? "Subject"
+      : card.type === "tobe"
+      ? "To Be"
+      : "Complement";
+
+    return '<button type="button" class="' +
+      escapeHTML(card.type) +
+      '" data-card-id="' + escapeHTML(card.id) + '">' +
+      escapeHTML(card.word) +
+      '<span class="cat">' + category + '</span>' +
+      '</button>';
+  }).join("");
+
+  const canPlay = myTurn();
+
+  $("hand").querySelectorAll("button").forEach(button => {
+    button.disabled = !canPlay;
+    button.addEventListener("click", () => {
+      playCard(button.dataset.cardId);
+    });
+  });
+
+  $("drawBtn").disabled =
+    !canPlay || !(state.deck || []).length;
+
+  $("passBtn").disabled = !canPlay;
+
+  $("restartBtn").disabled =
+    currentUser.uid !== state.hostUid;
+
+  $("restartBtn").textContent =
+    state.status === "waiting"
+      ? "🎮 Mulai Permainan"
+      : "🔄 Mulai Ulang";
+
+  $("handHint").textContent = canPlay
+    ? "Pilih satu kartu untuk dimainkan."
+    : "Tunggu giliranmu.";
+
+  // Papan skor
+  $("players").innerHTML = order.map(uid => {
+    const player = players[uid];
+    if (!player) return "";
+
+    const isCurrent = uid === turnId;
+
+    return '<div class="player ' +
+      (isCurrent ? "current" : "") + '">' +
+      '<div><strong>' + escapeHTML(player.name) + '</strong>' +
+      (uid === state.hostUid
+        ? '<div class="note">Host</div>'
+        : '') +
+      '</div>' +
+      '<div class="score">' +
+      Number(player.score || 0) + ' poin</div>' +
+      '</div>';
+  }).join("");
+
+  // Pemenang
+  if (state.status === "finished") {
+    $("winnerPanel").classList.remove("hidden");
+
+    const sorted = order
+      .map(uid => players[uid])
+      .filter(Boolean)
+      .sort((a, b) => (b.score || 0) - (a.score || 0));
+
+    $("winnerText").textContent = sorted.length
+      ? "Pemenang: " + sorted[0].name +
+        " — " + (sorted[0].score || 0) + " poin!"
+      : "Permainan selesai.";
+  } else {
+    $("winnerPanel").classList.add("hidden");
+  }
+}
+
+
+// ========================================
+// MEMULAI DAN MENGULANG PERMAINAN
+// ========================================
+
+async function restartGame() {
+  if (!currentRoom || !currentUser || busy) return;
+
+  busy = true;
+
+  try {
+    const ref = db.ref("rooms/" + currentRoom);
+
+    const result = await ref.transaction(state => {
+      if (!state || state.hostUid !== currentUser.uid) return;
+
+      const order = state.playerOrder || [];
+      const players = state.players || {};
+
+      if (!order.length) return;
+
+      const deck = makeDeck();
+
+      order.forEach(uid => {
+        if (players[uid]) {
+          players[uid].score = 0;
+          players[uid].hand = dealCards(deck, 5);
+        }
+      });
+
+      state.deck = deck;
+      state.discard = [];
+      state.board = [];
+      state.turnIndex = 0;
+      state.status = "playing";
+      state.lastMessage = "Permainan dimulai! Giliran pemain pertama.";
+
+      return state;
+    });
+
+    if (!result.committed) {
+      $("gameStatus").textContent =
+        "Tidak dapat memulai permainan. Pastikan kamu host.";
+    }
+  } catch (error) {
+    console.error(error);
+    $("gameStatus").textContent =
+      "Gagal memulai permainan: " + error.message;
+  } finally {
+    busy = false;
+  }
+}
+
+
+// ========================================
+// MEMVALIDASI SUSUNAN KALIMAT
+// ========================================
+
+function subjectNeedsAre(subject) {
+  return [
+    "You", "We", "They", "The students",
+    "My friends", "My parents", "Those girls"
+  ].includes(subject);
+}
+
+function subjectNeedsAm(subject) {
+  return subject === "I";
+}
+
+function validSentence(board) {
+  if (!board || board.length !== 3) return false;
+
+  const [subject, tobe, complement] = board;
+
+  if (
+    subject.type !== "subject" ||
+    tobe.type !== "tobe" ||
+    complement.type !== "complement"
+  ) {
+    return false;
+  }
+
+  let expected;
+
+  if (subjectNeedsAm(subject.word)) {
+    expected = "am";
+  } else if (subjectNeedsAre(subject.word)) {
+    expected = "are";
+  } else {
+    expected = "is";
+  }
+
+  return tobe.word === expected;
+}
+
+
+// ========================================
+// MEMAINKAN KARTU
+// ========================================
+
+async function playCard(cardId) {
+  if (!currentRoom || !currentUser || busy) return;
+  if (!myTurn()) return;
+
+  busy = true;
+
+  try {
+    const ref = db.ref("rooms/" + currentRoom);
+
+    const result = await ref.transaction(state => {
+      if (!state || state.status !== "playing") return;
+
+      const order = state.playerOrder || [];
+      const turnIndex = state.turnIndex || 0;
+      const turnUid = order[turnIndex % order.length];
+
+      if (turnUid !== currentUser.uid) return;
+
+      const player = state.players[currentUser.uid];
+      if (!player || !player.hand) return;
+
+      const cardIndex = player.hand.findIndex(
+        card => card.id === cardId
+      );
+
+      if (cardIndex < 0) return;
+
+      const card = player.hand[cardIndex];
+      const board = state.board || [];
+
+      // Urutan wajib: Subject, To Be, Complement.
+      const expectedType = board.length === 0
+        ? "subject"
+        : board.length === 1
+        ? "tobe"
+        : board.length === 2
+        ? "complement"
+        : null;
+
+      if (card.type !== expectedType) return;
+
+      player.hand.splice(cardIndex, 1);
+
+      state.board = [...board, card];
+      state.discard = state.discard || [];
+      state.discard.push(card);
+
+      state.lastMessage =
+        player.name + " meletakkan kartu " + card.word + ".";
+
+      if (state.board.length === 3) {
+        if (validSentence(state.board)) {
+          player.score = (player.score || 0) + 5;
+
+          state.lastMessage =
+            "Benar! " +
+            state.board.map(item => item.word).join(" ") +
+            ". " + player.name + " mendapat 5 poin.";
+        } else {
+          state.lastMessage =
+            "Kalimat belum benar. Kartu tetap dibuang.";
+        }
+
+        state.board = [];
+      }
+
+      // Ganti giliran
+      state.turnIndex =
+        (turnIndex + 1) % order.length;
+
+      // Isi ulang tangan pemain jika masih ada kartu
+      if (
+        player.hand.length < 5 &&
+        state.deck &&
+        state.deck.length > 0
+      ) {
+        player.hand.push(...dealCards(state.deck, 5 - player.hand.length));
+      }
+
+      // Selesai jika kartu habis di deck dan tangan semua pemain kosong
+      const allHandsEmpty = order.every(uid =>
+        !state.players[uid] ||
+        !(state.players[uid].hand || []).length
+      );
+
+      if (
+        (!state.deck || state.deck.length === 0) &&
+        allHandsEmpty
+      ) {
+        state.status = "finished";
+      }
+
+      return state;
+    });
+
+    if (!result.committed) {
+      $("gameStatus").textContent =
+        "Kartu tidak dapat dimainkan. Pastikan urutan kartu benar.";
+    }
+  } catch (error) {
+    console.error(error);
+    $("gameStatus").textContent =
+      "Gagal memainkan kartu: " + error.message;
+  } finally {
+    busy = false;
+  }
+}
+
+
+// ========================================
+// AMBIL KARTU
+// ========================================
+
+async function drawCard() {
+  if (!currentRoom || !currentUser || busy) return;
+  if (!myTurn()) return;
+
+  busy = true;
+
+  try {
+    const result = await db.ref("rooms/" + currentRoom).transaction(state => {
+      if (!state || state.status !== "playing") return;
+
+      const order = state.playerOrder || [];
+      const turnIndex = state.turnIndex || 0;
+
+      if (order[turnIndex % order.length] !== currentUser.uid) return;
+
+      const player = state.players[currentUser.uid];
+
+      if (!player || !state.deck || !state.deck.length) return;
+
+      player.hand = player.hand || [];
+      player.hand.push(...dealCards(state.deck, 1));
+
+      state.lastMessage = player.name + " mengambil satu kartu.";
+      state.turnIndex = (turnIndex + 1) % order.length;
+
+      return state;
+    });
+
+    if (!result.committed) {
+      $("gameStatus").textContent = "Tidak ada kartu yang bisa diambil.";
+    }
+  } catch (error) {
+    console.error(error);
+    $("gameStatus").textContent =
+      "Gagal mengambil kartu: " + error.message;
+  } finally {
+    busy = false;
+  }
+}
+
+
+// ========================================
+// OPER GILIRAN
+// ========================================
+
+async function passTurn() {
+  if (!currentRoom || !currentUser || busy) return;
+  if (!myTurn()) return;
+
+  busy = true;
+
+  try {
+    await db.ref("rooms/" + currentRoom).transaction(state => {
+      if (!state || state.status !== "playing") return;
+
+      const order = state.playerOrder || [];
+      const turnIndex = state.turnIndex || 0;
+
+      if (order[turnIndex % order.length] !== currentUser.uid) return;
+
+      state.lastMessage =
+        (state.players[currentUser.uid]?.name || "Pemain") +
+        " mengoper giliran.";
+
+      state.turnIndex = (turnIndex + 1) % order.length;
+
+      return state;
+    });
+  } catch (error) {
+    console.error(error);
+    $("gameStatus").textContent =
+      "Gagal mengoper giliran: " + error.message;
+  } finally {
+    busy = false;
+  }
+}
+
+
+// ========================================
+// KELUAR DARI ROOM
+// ========================================
+
+async function leaveRoom() {
+  if (!currentRoom || !currentUser) return;
+
+  const code = currentRoom;
+  const uid = currentUser.uid;
+
+  if (roomListener) {
+    db.ref("rooms/" + code).off("value", roomListener);
+  }
+
+  try {
+    await db.ref("rooms/" + code).transaction(state => {
+      if (!state || !state.players) return;
+
+      delete state.players[uid];
+
+      state.playerOrder = (state.playerOrder || [])
+        .filter(playerUid => playerUid !== uid);
+
+      if (!state.playerOrder.length) {
+        return null;
+      }
+
+      if (state.hostUid === uid) {
+        state.hostUid = state.playerOrder[0];
+      }
+
+      if (state.turnIndex >= state.playerOrder.length) {
+        state.turnIndex = 0;
+      }
+
+      state.lastMessage = "Seorang pemain keluar dari room.";
+
+      return state;
+    });
+  } catch (error) {
+    console.error(error);
+  }
+
+  currentRoom = null;
+  roomState = null;
+  roomListener = null;
+
+  $("gamePanel").classList.add("hidden");
+  $("setupPanel").classList.remove("hidden");
+
+  setStatus("Kamu telah keluar dari room.");
+}
+
+
+// ========================================
+// TOMBOL DAN INISIALISASI
+// ========================================
+
+$("createBtn").addEventListener("click", createRoom);
+$("joinBtn").addEventListener("click", joinRoom);
+$("restartBtn").addEventListener("click", restartGame);
+$("drawBtn").addEventListener("click", drawCard);
+$("passBtn").addEventListener("click", passTurn);
+$("leaveBtn").addEventListener("click", leaveRoom);
+
+$("copyCodeBtn").addEventListener("click", async () => {
+  if (!currentRoom) return;
+
+  try {
+    await navigator.clipboard.writeText(currentRoom);
+    $("gameStatus").textContent =
+      "Kode room " + currentRoom + " berhasil disalin.";
+  } catch {
+    $("gameStatus").textContent =
+      "Kode room kamu: " + currentRoom;
+  }
+});
+
+initializeFirebase();
+</script>
+</body>
+</html>
