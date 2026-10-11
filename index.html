@@ -778,70 +778,198 @@ async function createRoom() {
 }
 
 async function joinRoom() {
-  const name = $("playerName").value.trim()||"Player";
-  const code = $("roomCode").value.trim().toUpperCase();
+  const name =
+    $("playerName").value.trim() || "Player";
 
+  const code =
+    $("roomCode").value.trim().toUpperCase();
+
+  // 1. Periksa kode room
   if (!code) {
-    showStatus("setupStatus","Masukkan kode room.");
+    showStatus(
+      "setupStatus",
+      "Masukkan kode room terlebih dahulu."
+    );
     return;
   }
 
-  if (!firebaseInit()) return;
+  if (!/^[A-Z0-9]{5,8}$/.test(code)) {
+    showStatus(
+      "setupStatus",
+      "Format kode room tidak valid."
+    );
+    return;
+  }
+
+  // 2. Pastikan Firebase tersedia
+  if (!firebaseInit()) {
+    return;
+  }
 
   $("joinBtn").disabled = true;
-  showStatus("setupStatus","Bergabung ke room…");
+
+  showStatus(
+    "setupStatus",
+    "Menghubungkan ke Firebase..."
+  );
 
   try {
+    // 3. Login anonim
     await ensureAuth();
 
-    roomId = code;
-    const ref = db.ref("rooms/"+code);
-
-    const result = await ref.transaction(state=>{
-      if (!state) return;
-
-      state.players = state.players||{};
-      state.turnOrder = state.turnOrder||[];
-      state.decks = state.decks||newDecks();
-
-      if (state.players[uid]) return state;
-
-      const hand = [];
-
-      for (const cat of [
-        "subject","tobe","complement","subject","tobe"
-      ]) {
-        const card = drawOne(state,cat);
-        if (card) hand.push(card);
-      }
-
-      state.players[uid] = {
-        name,
-        score:0,
-        hand,
-        joinedAt:Date.now()
-      };
-
-      state.turnOrder.push(uid);
-      state.lastMessage = name+" bergabung ke room.";
-
-      return state;
-    });
-
-    if (!result.committed) {
-      throw new Error("Gagal memperbarui room.");
+    if (!uid) {
+      throw new Error(
+        "Login pemain gagal. Coba muat ulang halaman."
+      );
     }
 
+    // 4. Ambil referensi room
+    const ref = db.ref("rooms/" + code);
+
+    showStatus(
+      "setupStatus",
+      "Memeriksa kode room..."
+    );
+
+    // 5. Periksa apakah room tersedia
+    const snapshot = await ref.once("value");
+
+    if (!snapshot.exists()) {
+      throw new Error(
+        "Room tidak ditemukan. Periksa kode dari pembuat room."
+      );
+    }
+
+    // 6. Gabungkan pemain ke room
+    showStatus(
+      "setupStatus",
+      "Mendaftarkan pemain ke room..."
+    );
+
+    const result = await ref.transaction(
+      function(state) {
+        // Room mungkin dihapus saat proses berlangsung
+        if (state === null) {
+          return;
+        }
+
+        state.players = state.players || {};
+        state.turnOrder = state.turnOrder || [];
+        state.decks = state.decks || newDecks();
+
+        // Jika pemain sudah terdaftar, jangan tambahkan lagi
+        if (state.players[uid]) {
+          return state;
+        }
+
+        // Pastikan data giliran tersedia
+        if (
+          typeof state.turnIndex !== "number"
+        ) {
+          state.turnIndex = 0;
+        }
+
+        // Siapkan kartu pemain baru
+        const hand = [];
+
+        const startingCards = [
+          "subject",
+          "tobe",
+          "complement",
+          "subject",
+          "tobe"
+        ];
+
+        for (const category of startingCards) {
+          const card = drawOne(
+            state,
+            category
+          );
+
+          if (card) {
+            hand.push(card);
+          }
+        }
+
+        // Daftarkan pemain
+        state.players[uid] = {
+          name: name,
+          score: 0,
+          hand: hand,
+          joinedAt: Date.now()
+        };
+
+        // Tambahkan pemain ke urutan giliran
+        if (!state.turnOrder.includes(uid)) {
+          state.turnOrder.push(uid);
+        }
+
+        state.lastMessage =
+          name + " bergabung ke room.";
+
+        return state;
+      },
+      undefined,
+      false
+    );
+
+    // 7. Pastikan transaksi berhasil
+    if (!result.committed) {
+      throw new Error(
+        "Firebase membatalkan transaksi. Periksa izin database atau koneksi."
+      );
+    }
+
+    if (
+      !result.snapshot.exists() ||
+      !result.snapshot.child("players").child(uid).exists()
+    ) {
+      throw new Error(
+        "Data pemain tidak ditemukan setelah bergabung."
+      );
+    }
+
+    // 8. Masuk ke permainan
+    roomId = code;
     selected.clear();
+
     listenRoom();
 
-    showStatus("setupStatus","Berhasil bergabung ke room.");
+    showStatus(
+      "setupStatus",
+      "Berhasil bergabung! Memuat permainan..."
+    );
+
   } catch (error) {
-    showStatus("setupStatus","Gagal bergabung: "+error.message);
+    console.error(
+      "Kesalahan saat bergabung:",
+      error
+    );
+
+    let message = error.message || "Kesalahan tidak diketahui.";
+
+    if (
+      error.code === "PERMISSION_DENIED" ||
+      message.toLowerCase().includes("permission denied")
+    ) {
+      message =
+        "Akses Firebase ditolak. Periksa Rules Realtime Database dan login anonim.";
+    } else if (
+      message.toLowerCase().includes("network")
+    ) {
+      message =
+        "Koneksi bermasalah. Periksa internet dan coba lagi.";
+    }
+
+    showStatus(
+      "setupStatus",
+      "Gagal bergabung: " + message
+    );
+
   } finally {
     $("joinBtn").disabled = false;
   }
-}
+  }
 
 async function updateRoom(mutator) {
   if (!roomId||!db||!uid) {
