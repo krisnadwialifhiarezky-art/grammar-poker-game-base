@@ -425,15 +425,20 @@ input {
 // ========================================
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCsYQDXI9WINBfrzhDx-L_e-OQ3- SzpNA".replace(" ", ""),
-  authDomain: "grammar-poker-game-base.firebaseapp.com",
-  databaseURL: "https://grammar-poker-game-base-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "grammar-poker-game-base",
-  storageBucket: "grammar-poker-game-base.firebasestorage.app",
-  messagingSenderId: "631191441192",
-  appId: "1:631191441192:web:75fcfb94d576105cd30a1d",
-  measurementId: "G-C8G0N46BTL"
+  apiKey: "AIzaSyBW9hujvnshkexn6cEb8IZ13mPuAo6QfsA",
+  authDomain: "grammar-7d65e.firebaseapp.com",
+  databaseURL: "https://grammar-7d65e-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "grammar-7d65e",
+  storageBucket: "grammar-7d65e.firebasestorage.app",
+  messagingSenderId: "483154907796",
+  appId: "1:483154907796:web:ffd3a8aa5e08b6bfaa1a81",
+  measurementId: "G-X6WM2FTKM7"
 };
+
+firebase.initializeApp(firebaseConfig);
+
+const auth = firebase.auth();
+const db = firebase.database();
 
 firebase.initializeApp(firebaseConfig);
 
