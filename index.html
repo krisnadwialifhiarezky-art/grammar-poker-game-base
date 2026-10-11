@@ -20,18 +20,13 @@
 
 body {
   margin: 0;
-  background: radial-gradient(
-    ellipse at top,
-    #1a4434,
-    #0c211b 70%
-  );
+  background: radial-gradient(ellipse at top, #1a4434, #0c211b 70%);
   color: var(--cream);
   font-family: Arial, sans-serif;
   min-height: 100vh;
 }
 
-button,
-input {
+button, input {
   font: inherit;
 }
 
@@ -64,8 +59,7 @@ button:disabled {
   color: white;
 }
 
-header,
-main {
+header, main {
   max-width: 1100px;
   margin: auto;
   padding: 16px;
@@ -126,6 +120,7 @@ input {
   color: var(--gold);
   margin-top: 10px;
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .hidden {
@@ -157,7 +152,7 @@ input {
 }
 
 .board {
-  min-height: 180px;
+  min-height: 150px;
   background: #0b241a;
   border: 2px dashed #5b896d;
   border-radius: 16px;
@@ -170,16 +165,14 @@ input {
   text-align: center;
 }
 
-.boardcards,
-.hand {
+.boardcards, .hand {
   display: flex;
   gap: 9px;
   flex-wrap: wrap;
   justify-content: center;
 }
 
-.wordcard,
-.hand button {
+.wordcard, .hand button {
   background: var(--cream);
   color: #183629;
   border-radius: 11px;
@@ -279,17 +272,14 @@ input {
   <h2>🚪 Masuk Permainan</h2>
 
   <label for="playerName">Nama pemain</label>
-  <input
-    id="playerName"
-    maxlength="24"
-    placeholder="Masukkan nama"
-  >
+  <input id="playerName" maxlength="24" placeholder="Masukkan nama">
 
   <label for="roomCode">Kode room</label>
   <input
     id="roomCode"
     maxlength="8"
     placeholder="Masukkan kode room"
+    autocapitalize="characters"
   >
 
   <div class="row">
@@ -302,7 +292,9 @@ input {
     </button>
   </div>
 
-  <div id="setupStatus" class="status" role="status"></div>
+  <div id="setupStatus" class="status" role="status">
+    Menghubungkan ke server...
+  </div>
 
   <p class="note">
     Host membuat room dan membagikan kodenya kepada teman.
@@ -343,7 +335,7 @@ input {
       </span>
 
       <span class="pill">
-        Pemain: <strong id="playerCount">1/6</strong>
+        Pemain: <strong id="playerCount">0/6</strong>
       </span>
     </div>
   </section>
@@ -402,12 +394,12 @@ input {
         <p class="note">
           1. Maksimal enam pemain.<br><br>
           2. Terdapat 60 kartu.<br><br>
-          3. Semua pemain menyusun kalimat di meja yang sama.<br><br>
-          4. Jika tidak memiliki kartu yang cocok, pemain
+          3. Pemain menyusun kalimat di meja yang sama.<br><br>
+          4. Jika tidak memiliki kartu cocok, pemain
           boleh mengambil satu kartu atau mengoper giliran.<br><br>
-          5. Kalimat yang benar memberi lima poin kepada
+          5. Kalimat benar memberi lima poin kepada
           pemain yang meletakkan kartu terakhir.<br><br>
-          6. Kartu yang sudah digunakan dibuang.<br><br>
+          6. Kartu yang digunakan dibuang.<br><br>
           7. Pemain dengan skor tertinggi menang.
         </p>
 
@@ -431,6 +423,6 @@ input {
 </section>
 </main>
 
-<footer>
+<footer style="max-width:1100px;margin:auto;padding:16px;color:#bdd0c5">
   Grammar Poker · Firebase Multiplayer
 </footer>
