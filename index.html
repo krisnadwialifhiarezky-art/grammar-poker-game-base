@@ -183,11 +183,17 @@ input {
   text-align: center;
   font-weight: 800;
   box-shadow: 0 4px 0 #c6b998;
+  border: none;
+  cursor: pointer;
 }
 
-.hand button {
-  flex: 1 1 90px;
-  max-width: 170px;
+.hand button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 #c6b998;
+}
+
+.hand button:disabled {
+  opacity: 0.6;
 }
 
 .subject { border-bottom: 5px solid var(--blue) !important; }
@@ -999,15 +1005,58 @@ async function playCard(cardId) {
     });
 
   } catch (err) {
-    alert("Gagal memainkan kartu: " + err.message);
+    console.error("Gagal memainkan kartu:", err);
 
   } finally {
     busy = false;
   }
 }
 
-/* MENGAMBIL KARTU */
+/* AMBIL KARTU DARI TUMPUKAN */
 async function drawCard() {
+  if (!myTurn() || busy) return;
+
+  busy = true;
+
+  try {
+    await updateRoom(state => {
+      if (state.status !== "playing" ||
+          currentPlayerId(state) !== currentUser.uid) {
+        return;
+      }
+
+      const deck = state.deck || [];
+
+      if (!deck.length) {
+        state.lastMessage = "Tumpukan kartu habis!";
+        return state;
+      }
+
+      const p = state.players[currentUser.uid];
+      p.hand = p.hand || [];
+
+      const card = deck.pop();
+      p.hand.push(card);
+
+      state.lastMessage =
+        p.name + " mengambil satu kartu dari tumpukan.";
+
+      advanceTurn(state);
+      finishIfNeeded(state);
+
+      return state;
+    });
+
+  } catch (err) {
+    console.error("Gagal ambil kartu:", err);
+
+  } finally {
+    busy = false;
+  }
+}
+
+/* SKIP GILIRAN */
+async function passCard() {
   if (!myTurn() || busy) return;
 
   busy = true;
@@ -1021,48 +1070,8 @@ async function drawCard() {
 
       const p = state.players[currentUser.uid];
 
-      if (!(state.deck || []).length) {
-        state.lastMessage =
-          "Tumpukan kartu habis. Giliran dilewati.";
-
-      } else if ((p.hand || []).length >= 10) {
-        state.lastMessage =
-          "Kartu di tangan sudah mencapai batas 10.";
-
-      } else {
-        p.hand.push(state.deck.pop());
-        state.lastMessage = p.name + " mengambil satu kartu.";
-      }
-
-      advanceTurn(state);
-      finishIfNeeded(state);
-
-      return state;
-    });
-
-  } catch (err) {
-    alert("Gagal mengambil kartu: " + err.message);
-
-  } finally {
-    busy = false;
-  }
-}
-
-/* MELEWATI GILIRAN */
-async function passTurn() {
-  if (!myTurn() || busy) return;
-
-  busy = true;
-
-  try {
-    await updateRoom(state => {
-      if (state.status !== "playing" ||
-          currentPlayerId(state) !== currentUser.uid) {
-        return;
-      }
-
       state.lastMessage =
-        state.players[currentUser.uid].name + " melewati giliran.";
+        p.name + " melewati giliran.";
 
       advanceTurn(state);
       finishIfNeeded(state);
@@ -1071,7 +1080,7 @@ async function passTurn() {
     });
 
   } catch (err) {
-    alert("Gagal melewati giliran: " + err.message);
+    console.error("Gagal skip giliran:", err);
 
   } finally {
     busy = false;
@@ -1080,19 +1089,10 @@ async function passTurn() {
 
 /* MEMULAI PERMAINAN */
 async function startGame() {
-  if (busy || !roomState || !currentUser) return;
+  if (busy) return;
 
   if (currentUser.uid !== roomState.hostUid) {
-    alert("Hanya host yang dapat memulai permainan.");
-    return;
-  }
-
-  if ((roomState.playerOrder || []).length < 2) {
-    alert("Ajak minimal satu teman untuk bermain bersama.");
-    return;
-  }
-
-  if (!confirm("Mulai permainan baru? Semua skor dan kartu akan direset.")) {
+    setStatus("Hanya host yang bisa memulai permainan.");
     return;
   }
 
@@ -1100,31 +1100,60 @@ async function startGame() {
 
   try {
     await updateRoom(state => {
-      if (state.hostUid !== currentUser.uid) return;
+      if (state.status !== "waiting") {
+        return;
+      }
 
-      const deck = makeDeck();
-      const order = state.playerOrder || [];
-
-      state.deck = deck;
-      state.discard = [];
-      state.board = [];
-      state.turnIndex = 0;
       state.status = "playing";
-
-      order.forEach(uid => {
-        state.players[uid].score = 0;
-        state.players[uid].hand = dealCards(deck, 5);
-      });
-
-      state.lastMessage =
-        "🎮 Permainan dimulai! Giliran pertama: " +
-        (state.players[order[0]]?.name || "Pemain pertama") + ".";
+      state.turnIndex = 0;
+      state.lastMessage = "Permainan dimulai!";
 
       return state;
     });
 
   } catch (err) {
-    alert("Gagal memulai permainan: " + err.message);
+    console.error("Gagal memulai permainan:", err);
+
+  } finally {
+    busy = false;
+  }
+}
+
+/* MENGULANG PERMAINAN */
+async function restartGame() {
+  if (busy) return;
+
+  if (currentUser.uid !== roomState.hostUid) {
+    setStatus("Hanya host yang bisa mengulang permainan.");
+    return;
+  }
+
+  busy = true;
+
+  try {
+    await updateRoom(state => {
+      const deck = makeDeck();
+
+      state.status = "waiting";
+      state.deck = deck;
+      state.discard = [];
+      state.board = [];
+      state.turnIndex = 0;
+
+      (state.playerOrder || []).forEach(uid => {
+        if (state.players[uid]) {
+          state.players[uid].score = 0;
+          state.players[uid].hand = dealCards(deck, 5);
+        }
+      });
+
+      state.lastMessage = "Permainan diulang.";
+
+      return state;
+    });
+
+  } catch (err) {
+    console.error("Gagal mengulang permainan:", err);
 
   } finally {
     busy = false;
@@ -1132,53 +1161,7 @@ async function startGame() {
 }
 
 /* KELUAR DARI ROOM */
-async function leaveRoom() {
-  if (!currentRoom || !currentUser) return;
-
-  if (!confirm("Yakin ingin keluar dari room?")) return;
-
-  const code = currentRoom;
-
-  try {
-    await db.ref("rooms/" + code).transaction(state => {
-      if (!state || !state.players ||
-          !state.players[currentUser.uid]) {
-        return;
-      }
-
-      const uid = currentUser.uid;
-      const wasHost = state.hostUid === uid;
-      const oldOrder = state.playerOrder || [];
-      const oldIndex = oldOrder.indexOf(uid);
-
-      delete state.players[uid];
-
-      state.playerOrder = oldOrder.filter(x => x !== uid);
-
-      if (!state.playerOrder.length) return null;
-
-      if (wasHost) {
-        state.hostUid = state.playerOrder[0];
-      }
-
-      if (oldIndex >= 0 &&
-          oldIndex < (Number(state.turnIndex) || 0)) {
-        state.turnIndex--;
-      }
-
-      if (state.turnIndex >= state.playerOrder.length) {
-        state.turnIndex = 0;
-      }
-
-      state.lastMessage = "Seorang pemain keluar dari room.";
-
-      return state;
-    });
-
-  } catch (err) {
-    console.error(err);
-  }
-
+function leaveGame() {
   if (roomListener) {
     roomListener.off();
     roomListener = null;
@@ -1187,46 +1170,55 @@ async function leaveRoom() {
   currentRoom = null;
   roomState = null;
 
-  $("gamePanel").classList.add("hidden");
   $("setupPanel").classList.remove("hidden");
+  $("gamePanel").classList.add("hidden");
+  $("playerName").value = "";
+  $("roomCode").value = "";
 
-  setStatus("Kamu telah keluar. Buat atau gabung room lagi.");
+  setStatus("Terhubung! Silakan buat room atau gabung room.");
 }
 
-/* TOMBOL */
+/* SALIN KODE ROOM */
+function copyCode() {
+  const code = currentRoom;
+
+  if (!code) return;
+
+  navigator.clipboard.writeText(code).then(() => {
+    const btn = $("copyCodeBtn");
+    const original = btn.textContent;
+
+    btn.textContent = "✓ Tersalin!";
+
+    setTimeout(() => {
+      btn.textContent = original;
+    }, 2000);
+
+  }).catch(err => {
+    console.error("Gagal menyalin:", err);
+  });
+}
+
+/* EVENT LISTENERS */
 $("createBtn").addEventListener("click", createRoom);
 $("joinBtn").addEventListener("click", joinRoom);
 $("drawBtn").addEventListener("click", drawCard);
-$("passBtn").addEventListener("click", passTurn);
+$("passBtn").addEventListener("click", passCard);
 $("restartBtn").addEventListener("click", startGame);
-$("leaveBtn").addEventListener("click", leaveRoom);
+$("leaveBtn").addEventListener("click", leaveGame);
+$("copyCodeBtn").addEventListener("click", copyCode);
 
-$("roomCode").addEventListener("input", e => {
-  e.target.value = e.target.value.toUpperCase();
+/* ENTER KEY DI INPUT */
+$("playerName").addEventListener("keypress", e => {
+  if (e.key === "Enter") createRoom();
 });
 
-$("copyCodeBtn").addEventListener("click", async () => {
-  if (!currentRoom) return;
-
-  try {
-    await navigator.clipboard.writeText(currentRoom);
-    $("gameStatus").textContent = "Kode room berhasil disalin!";
-
-  } catch {
-    $("gameStatus").textContent = "Kode room: " + currentRoom;
-    prompt("Salin kode room:", currentRoom);
-  }
+$("roomCode").addEventListener("keypress", e => {
+  if (e.key === "Enter") joinRoom();
 });
 
-/* JALANKAN FIREBASE SETELAH HALAMAN SELESAI DIMUAT */
-window.addEventListener("load", () => {
-  if (!window.firebase) {
-    setStatus("Firebase SDK gagal dimuat. Periksa koneksi internet.");
-    return;
-  }
-
-  initFirebase();
-});
+/* INISIAL */
+initFirebase();
 </script>
 
 </body>
