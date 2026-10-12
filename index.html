@@ -992,15 +992,14 @@ async function playCard(cardId) {
 
         state.discard = (state.discard || []).concat(state.board);
         state.board = [];
+        advanceTurn(state);
 
       } else {
         state.lastMessage =
           p.name + " memainkan kartu " + card.word + ".";
       }
 
-      advanceTurn(state);
       finishIfNeeded(state);
-
       return state;
     });
 
@@ -1012,7 +1011,7 @@ async function playCard(cardId) {
   }
 }
 
-/* AMBIL KARTU DARI TUMPUKAN */
+/* MENGAMBIL KARTU */
 async function drawCard() {
   if (!myTurn() || busy) return;
 
@@ -1033,9 +1032,9 @@ async function drawCard() {
       }
 
       const p = state.players[currentUser.uid];
-      p.hand = p.hand || [];
-
       const card = deck.pop();
+
+      if (!p.hand) p.hand = [];
       p.hand.push(card);
 
       state.lastMessage =
@@ -1043,12 +1042,11 @@ async function drawCard() {
 
       advanceTurn(state);
       finishIfNeeded(state);
-
       return state;
     });
 
   } catch (err) {
-    console.error("Gagal ambil kartu:", err);
+    console.error("Gagal mengambil kartu:", err);
 
   } finally {
     busy = false;
@@ -1071,11 +1069,10 @@ async function passCard() {
       const p = state.players[currentUser.uid];
 
       state.lastMessage =
-        p.name + " melewati giliran.";
+        p.name + " skip giliran.";
 
       advanceTurn(state);
       finishIfNeeded(state);
-
       return state;
     });
 
@@ -1087,20 +1084,16 @@ async function passCard() {
   }
 }
 
-/* MEMULAI PERMAINAN */
+/* MULAI PERMAINAN */
 async function startGame() {
-  if (busy) return;
-
-  if (currentUser.uid !== roomState.hostUid) {
-    setStatus("Hanya host yang bisa memulai permainan.");
-    return;
-  }
+  if (busy || currentUser?.uid !== roomState?.hostUid) return;
 
   busy = true;
 
   try {
     await updateRoom(state => {
-      if (state.status !== "waiting") {
+      if (state.status !== "waiting" ||
+          state.hostUid !== currentUser.uid) {
         return;
       }
 
@@ -1119,106 +1112,116 @@ async function startGame() {
   }
 }
 
-/* MENGULANG PERMAINAN */
+/* RESTART PERMAINAN */
 async function restartGame() {
-  if (busy) return;
-
-  if (currentUser.uid !== roomState.hostUid) {
-    setStatus("Hanya host yang bisa mengulang permainan.");
-    return;
-  }
+  if (busy || currentUser?.uid !== roomState?.hostUid) return;
 
   busy = true;
 
   try {
     await updateRoom(state => {
-      const deck = makeDeck();
+      if (state.hostUid !== currentUser.uid) {
+        return;
+      }
 
-      state.status = "waiting";
+      const deck = makeDeck();
+      const order = state.playerOrder || [];
+
+      order.forEach(uid => {
+        state.players[uid].hand = dealCards(deck, 5);
+        state.players[uid].score = 0;
+      });
+
       state.deck = deck;
       state.discard = [];
       state.board = [];
       state.turnIndex = 0;
-
-      (state.playerOrder || []).forEach(uid => {
-        if (state.players[uid]) {
-          state.players[uid].score = 0;
-          state.players[uid].hand = dealCards(deck, 5);
-        }
-      });
-
-      state.lastMessage = "Permainan diulang.";
+      state.status = "playing";
+      state.lastMessage = "Permainan dimulai kembali!";
 
       return state;
     });
 
   } catch (err) {
-    console.error("Gagal mengulang permainan:", err);
+    console.error("Gagal restart permainan:", err);
 
   } finally {
     busy = false;
   }
 }
 
+/* SALIN KODE ROOM */
+function copyCode() {
+  if (!currentRoom) return;
+
+  navigator.clipboard.writeText(currentRoom).then(() => {
+    const btn = $("copyCodeBtn");
+    const old = btn.textContent;
+    btn.textContent = "✓ Tersalin!";
+
+    setTimeout(() => {
+      btn.textContent = old;
+    }, 2000);
+  }).catch(err => {
+    console.error("Gagal copy kode:", err);
+  });
+}
+
 /* KELUAR DARI ROOM */
-function leaveGame() {
-  if (roomListener) {
-    roomListener.off();
-    roomListener = null;
+async function leaveRoom() {
+  if (!currentRoom || !currentUser) return;
+
+  try {
+    await db.ref("rooms/" + currentRoom).transaction(state => {
+      if (!state || !state.players) return;
+
+      delete state.players[currentUser.uid];
+
+      const order = state.playerOrder || [];
+      const idx = order.indexOf(currentUser.uid);
+
+      if (idx >= 0) {
+        order.splice(idx, 1);
+      }
+
+      if (!order.length) {
+        return null;
+      }
+
+      state.lastMessage = "Seorang pemain keluar.";
+      return state;
+    });
+
+  } catch (err) {
+    console.error("Gagal keluar dari room:", err);
   }
 
   currentRoom = null;
   roomState = null;
 
+  if (roomListener) {
+    roomListener.off();
+    roomListener = null;
+  }
+
   $("setupPanel").classList.remove("hidden");
   $("gamePanel").classList.add("hidden");
   $("playerName").value = "";
   $("roomCode").value = "";
-
-  setStatus("Terhubung! Silakan buat room atau gabung room.");
-}
-
-/* SALIN KODE ROOM */
-function copyCode() {
-  const code = currentRoom;
-
-  if (!code) return;
-
-  navigator.clipboard.writeText(code).then(() => {
-    const btn = $("copyCodeBtn");
-    const original = btn.textContent;
-
-    btn.textContent = "✓ Tersalin!";
-
-    setTimeout(() => {
-      btn.textContent = original;
-    }, 2000);
-
-  }).catch(err => {
-    console.error("Gagal menyalin:", err);
-  });
 }
 
 /* EVENT LISTENERS */
-$("createBtn").addEventListener("click", createRoom);
-$("joinBtn").addEventListener("click", joinRoom);
-$("drawBtn").addEventListener("click", drawCard);
-$("passBtn").addEventListener("click", passCard);
-$("restartBtn").addEventListener("click", startGame);
-$("leaveBtn").addEventListener("click", leaveGame);
-$("copyCodeBtn").addEventListener("click", copyCode);
+document.addEventListener("DOMContentLoaded", () => {
+  $("createBtn").addEventListener("click", createRoom);
+  $("joinBtn").addEventListener("click", joinRoom);
+  $("drawBtn").addEventListener("click", drawCard);
+  $("passBtn").addEventListener("click", passCard);
+  $("restartBtn").addEventListener("click", startGame);
+  $("copyCodeBtn").addEventListener("click", copyCode);
+  $("leaveBtn").addEventListener("click", leaveRoom);
 
-/* ENTER KEY DI INPUT */
-$("playerName").addEventListener("keypress", e => {
-  if (e.key === "Enter") createRoom();
+  initFirebase();
 });
-
-$("roomCode").addEventListener("keypress", e => {
-  if (e.key === "Enter") joinRoom();
-});
-
-/* INISIAL */
-initFirebase();
 </script>
 
 </body>
