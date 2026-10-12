@@ -37,11 +37,14 @@ button {
   font-weight: 750;
   cursor: pointer;
   min-height: 44px;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 button:disabled {
   opacity: .45;
-  cursor: not-allowed;
+  cursor: not-allowed !important;
+  pointer-events: none;
 }
 
 .primary { background: var(--gold); color: #28200e; }
@@ -187,16 +190,18 @@ input {
   border: none;
   cursor: pointer;
   transition: all 0.15s ease;
+  pointer-events: auto;
 }
 
 .hand button:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 6px 0 #c6b998;
+  pointer-events: auto;
 }
 
-.hand button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.hand button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 0 #c6b998;
 }
 
 .subject { border-bottom: 5px solid var(--blue) !important; }
@@ -777,23 +782,29 @@ function renderGame() {
   const me = players[currentUser.uid];
   const hand = me && Array.isArray(me.hand) ? me.hand : [];
 
-  $("hand").innerHTML = "";
-  hand.forEach((card, idx) => {
+  const handContainer = $("hand");
+  handContainer.innerHTML = "";
+  
+  hand.forEach((card) => {
     const b = document.createElement("button");
     b.type = "button";
     b.className = card.type;
-    b.disabled = !myTurn();
-    b.innerHTML = `${escapeHTML(card.word)}<span class="cat">${escapeHTML(card.type)}</span>`;
+    b.textContent = card.word;
     
-    b.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (!b.disabled) {
-        playCard(card.id);
-      }
-    });
+    const catSpan = document.createElement("span");
+    catSpan.className = "cat";
+    catSpan.textContent = card.type;
+    b.appendChild(catSpan);
     
-    $("hand").appendChild(b);
+    // PENTING: Disable jika bukan giliran
+    if (!myTurn()) {
+      b.disabled = true;
+    } else {
+      b.disabled = false;
+      b.onclick = () => playCard(card.id);
+    }
+    
+    handContainer.appendChild(b);
   });
 
   if (s.status === "waiting") {
@@ -826,45 +837,29 @@ function renderGame() {
 }
 
 async function playCard(cardId) {
-  if (!myTurn()) {
-    console.log("Bukan giliran kamu atau game belum dimulai");
-    return;
-  }
-  
-  if (busy) {
-    console.log("Sedang memproses aksi lain");
-    return;
-  }
+  if (!myTurn()) return;
+  if (busy) return;
 
-  console.log("Memainkan kartu:", cardId);
   busy = true;
 
   try {
-    const result = await updateRoom(state => {
+    await updateRoom(state => {
       if (state.status !== "playing") {
-        console.log("Game tidak dalam mode playing");
-        busy = false;
         return;
       }
 
       if (currentPlayerId(state) !== currentUser.uid) {
-        console.log("Bukan giliran pemain ini");
-        busy = false;
         return;
       }
 
       const p = state.players[currentUser.uid];
       if (!p || !p.hand) {
-        console.log("Player tidak ditemukan atau tidak punya kartu");
-        busy = false;
         return;
       }
 
       const idx = p.hand.findIndex(c => c.id === cardId);
       if (idx < 0) {
-        console.log("Kartu tidak ditemukan di tangan pemain");
         state.lastMessage = "Kartu tidak ditemukan di tanganmu.";
-        busy = false;
         return state;
       }
 
@@ -873,23 +868,19 @@ async function playCard(cardId) {
 
       if (board.length >= 3) {
         state.lastMessage = "Meja penuh. Tunggu penyelesaian kalimat.";
-        busy = false;
         return state;
       }
 
       if (board.length === 0 && card.type !== "subject") {
         state.lastMessage = "❌ Kalimat harus dimulai dengan Subject.";
-        busy = false;
         return state;
       }
       if (board.length === 1 && card.type !== "tobe") {
         state.lastMessage = "❌ Sekarang pilih To Be.";
-        busy = false;
         return state;
       }
       if (board.length === 2 && card.type !== "complement") {
         state.lastMessage = "❌ Sekarang pilih Complement.";
-        busy = false;
         return state;
       }
 
@@ -915,11 +906,8 @@ async function playCard(cardId) {
 
       return state;
     });
-
-    console.log("Kartu berhasil dimainkan");
   } catch (err) {
-    console.error("Gagal memainkan kartu:", err);
-    alert("Gagal memainkan kartu: " + err.message);
+    console.error("Error:", err);
   } finally {
     busy = false;
   }
@@ -940,7 +928,6 @@ async function drawCard() {
         deck = shuffle([...state.discard]);
         state.discard = [];
         state.deck = deck;
-        state.lastMessage = "Deck habis, kartu dibuang dikocok ulang.";
       }
 
       if (!deck.length) {
@@ -954,14 +941,14 @@ async function drawCard() {
       p.hand.push(card);
 
       state.deck = deck;
-      state.lastMessage = p.name + " mengambil kartu " + card.word + ".";
+      state.lastMessage = p.name + " mengambil kartu.";
 
       nextTurn(state);
       finishIfNeeded(state);
       return state;
     });
   } catch (err) {
-    console.error("Gagal mengambil kartu:", err);
+    console.error("Error:", err);
   } finally {
     busy = false;
   }
@@ -983,7 +970,7 @@ async function passCard() {
       return state;
     });
   } catch (err) {
-    console.error("Gagal skip giliran:", err);
+    console.error("Error:", err);
   } finally {
     busy = false;
   }
@@ -1004,7 +991,7 @@ async function startGame() {
       return state;
     });
   } catch (err) {
-    console.error("Gagal memulai permainan:", err);
+    console.error("Error:", err);
   } finally {
     busy = false;
   }
@@ -1037,7 +1024,7 @@ async function restartGame() {
       return state;
     });
   } catch (err) {
-    console.error("Gagal restart permainan:", err);
+    console.error("Error:", err);
   } finally {
     busy = false;
   }
@@ -1051,7 +1038,7 @@ function copyCode() {
     btn.textContent = "✓ Tersalin!";
     setTimeout(() => { btn.textContent = old; }, 2000);
   }).catch(err => {
-    console.error("Gagal copy kode:", err);
+    console.error("Error:", err);
   });
 }
 
@@ -1070,7 +1057,7 @@ async function leaveRoom() {
       return state;
     });
   } catch (err) {
-    console.error("Gagal keluar dari room:", err);
+    console.error("Error:", err);
   }
 
   currentRoom = null;
