@@ -81,6 +81,30 @@ body{background:radial-gradient(ellipse at 50% -10%,#8a5a16 0,#39200b 48%,#100b0
  --shadow:0 18px 45px #08031380;
 }
 *{scroll-behavior:smooth}
+ <script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyBW9hujvnshkexn6cEb8IZ13mPuAo6QfsA",
+    authDomain: "grammar-7d65e.firebaseapp.com",
+    databaseURL: "https://grammar-7d65e-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "grammar-7d65e",
+    storageBucket: "grammar-7d65e.firebasestorage.app",
+    messagingSenderId: "483154907796",
+    appId: "1:483154907796:web:3d314fb507904fefaa1a81",
+    measurementId: "G-YGW6GNXKLZ"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+</script>
 body{
  color:#241533;
  background:
