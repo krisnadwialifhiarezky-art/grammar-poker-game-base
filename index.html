@@ -303,16 +303,30 @@ import { getDatabase, ref, set, get, onValue, runTransaction } from "https://www
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
 
 /* Solo Mode: tidak memerlukan Firebase atau koneksi multiplayer. */
-const firebaseConfig = {
- apiKey:"AIzaSyBW9hujvnshkexn6cEb8IZ13mPuAo6QfsA",
- authDomain:"grammar-7d65e.firebaseapp.com",
- databaseURL:"https://grammar-7d65e-default-rtdb.asia-southeast1.firebasedatabase.app",
- projectId:"grammar-7d65e",
- storageBucket:"grammar-7d65e.firebasestorage.app",
- messagingSenderId:"483154907796",
- appId:"1:483154907796:web:3d314fb507904fefaa1a81",
- measurementId:"G-YGW6GNXKLZ"
-};
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyCaWhxVs0FVAgtmqibzY8rDxeQitCmy0Hk",
+    authDomain: "grammar-poker.firebaseapp.com",
+    databaseURL: "https://grammar-poker-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "grammar-poker",
+    storageBucket: "grammar-poker.firebasestorage.app",
+    messagingSenderId: "406151323956",
+    appId: "1:406151323956:web:62c1ce55f38cc2dfe18561",
+    measurementId: "G-H9QWVQ2VNT"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+</script>
 const $=id=>document.getElementById(id);
 let streak=0, missionIndex=0, stack=100, pot=0;const missions=["Buat kalimat pertamamu!","Gunakan I + am dengan benar.","Buat kalimat memakai He / She / It.","Coba gunakan They + are.","Raih 3 kalimat benar berturut-turut!"];function toast(msg){const el=document.getElementById("toast");if(!el)return;el.textContent=msg;el.classList.add("show");setTimeout(()=>el.classList.remove("show"),1800)}
 let mode="solo", players=[], current=0, deck=[], board=[], selected=null, logItems=[], gameOver=false, pendingWinner=false, roomCode="", uid="", db=null, auth=null, unsubscribe=null, busy=false, roomVersion=0;
