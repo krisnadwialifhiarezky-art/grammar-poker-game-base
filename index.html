@@ -44,7 +44,6 @@ button {
 button:disabled {
   opacity: .45;
   cursor: not-allowed !important;
-  pointer-events: none;
 }
 
 .primary { background: var(--gold); color: #28200e; }
@@ -120,6 +119,7 @@ input {
   overflow-wrap: anywhere;
   margin-top: 12px;
   font-size: 0.95rem;
+  min-height: 30px;
 }
 
 .hidden { display: none !important; }
@@ -155,6 +155,7 @@ input {
   margin-bottom: 14px;
   color: #ffe5a0;
   font-weight: 800;
+  text-align: center;
 }
 
 .board {
@@ -190,13 +191,11 @@ input {
   border: none;
   cursor: pointer;
   transition: all 0.15s ease;
-  pointer-events: auto;
 }
 
 .hand button:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 6px 0 #c6b998;
-  pointer-events: auto;
 }
 
 .hand button:active:not(:disabled) {
@@ -346,7 +345,7 @@ footer {
         <p class="note">
           Urutan kartu:
           <b>Subject → To Be → Complement</b>.
-          Setiap pemain main bergilir. Kalimat yang benar = 5 poin.
+          Kalimat yang benar = 5 poin.
         </p>
 
         <div class="row">
@@ -376,15 +375,14 @@ footer {
           2. Pemain bergantian mainkan kartu sesuai urutan Subject → To Be → Complement.<br><br>
           3. Kalimat yang benar = 5 poin untuk pemain pembuat kalimat.<br><br>
           4. Jika tidak punya kartu yang cocok, ambil kartu atau skip giliran.<br><br>
-          5. Kartu yang sudah dipakai masuk ke discard dan tidak bisa dipakai lagi.<br><br>
-          6. Permainan selesai saat semua kartu habis. Skor tertinggi menang!
+          5. Permainan selesai saat semua kartu habis. Skor tertinggi menang!
         </p>
 
         <button id="restartBtn" class="primary" style="width:100%" disabled>
           🎮 Mulai Permainan
         </button>
 
-        <p class="small">Hanya host yang dapat memulai atau mengulang permainan.</p>
+        <p class="small">Hanya host yang dapat memulai permainan.</p>
       </section>
 
       <section id="winnerPanel" class="panel hidden">
@@ -492,7 +490,11 @@ function makeDeck() {
 }
 
 function dealCards(deck, n = 5) {
-  return deck.splice(0, Math.min(n, deck.length));
+  const cards = [];
+  for (let i = 0; i < n && deck.length > 0; i++) {
+    cards.push(deck.pop());
+  }
+  return cards;
 }
 
 function expectedToBe(subject) {
@@ -523,38 +525,25 @@ function myTurn() {
   return Boolean(roomState && roomState.status === "playing" && currentPlayerId() === currentUser?.uid);
 }
 
-function nextTurn(state) {
-  const order = state.playerOrder || [];
-  if (order.length) {
-    state.turnIndex = ((Number(state.turnIndex) || 0) + 1) % order.length;
-  }
-}
-
-function finishIfNeeded(state) {
-  const order = state.playerOrder || [];
-  const handsEmpty = order.every(uid => !(state.players[uid]?.hand || []).length);
-  if (!(state.deck || []).length && handsEmpty && !(state.board || []).length) {
-    state.status = "finished";
-    state.lastMessage = "🎉 Permainan selesai! Semua kartu habis.";
-  }
-}
-
 function makeGame(name, uid) {
   const deck = makeDeck();
+  const players = {};
+  const hand = dealCards(deck, 5);
+  
+  players[uid] = {
+    uid,
+    name,
+    score: 0,
+    hand: hand,
+    joinedAt: Date.now()
+  };
+
   return {
     status: "waiting",
     hostUid: uid,
-    players: {
-      [uid]: {
-        uid,
-        name,
-        score: 0,
-        hand: dealCards(deck, 5),
-        joinedAt: Date.now()
-      }
-    },
+    players: players,
     playerOrder: [uid],
-    deck,
+    deck: deck,
     discard: [],
     board: [],
     turnIndex: 0,
@@ -671,17 +660,20 @@ async function joinRoom() {
       if (state.status !== "waiting" || state.playerOrder.length >= 6) {
         return;
       }
-      if (!Array.isArray(state.deck)) state.deck = [];
+
+      const deck = state.deck || [];
+      const hand = dealCards(deck, 5);
 
       state.players[currentUser.uid] = {
         uid: currentUser.uid,
         name,
         score: 0,
-        hand: dealCards(state.deck, 5),
+        hand: hand,
         joinedAt: Date.now()
       };
 
       state.playerOrder.push(currentUser.uid);
+      state.deck = deck;
       state.lastMessage = name + " bergabung ke room.";
       return state;
     });
@@ -780,7 +772,7 @@ function renderGame() {
     : "Belum ada kartu di meja.<br>Mulai dengan Subject.";
 
   const me = players[currentUser.uid];
-  const hand = me && Array.isArray(me.hand) ? me.hand : [];
+  const hand = (me && Array.isArray(me.hand)) ? me.hand : [];
 
   const handContainer = $("hand");
   handContainer.innerHTML = "";
@@ -789,6 +781,8 @@ function renderGame() {
     const b = document.createElement("button");
     b.type = "button";
     b.className = card.type;
+    b.disabled = !myTurn();
+    
     b.textContent = card.word;
     
     const catSpan = document.createElement("span");
@@ -796,11 +790,7 @@ function renderGame() {
     catSpan.textContent = card.type;
     b.appendChild(catSpan);
     
-    // PENTING: Disable jika bukan giliran
-    if (!myTurn()) {
-      b.disabled = true;
-    } else {
-      b.disabled = false;
+    if (myTurn() && !b.disabled) {
       b.onclick = () => playCard(card.id);
     }
     
@@ -813,7 +803,7 @@ function renderGame() {
   } else if (s.status === "playing") {
     $("turnBanner").textContent = active ? "🎯 Giliran: " + active.name : "Menunggu pemain...";
     $("handHint").textContent = myTurn() ? "Giliranmu! Pilih kartu sesuai urutan." : "Tunggu giliran pemain lain.";
-  } else {
+  } else if (s.status === "finished") {
     $("turnBanner").textContent = "✅ Permainan selesai!";
     $("handHint").textContent = "Lihat papan skor untuk hasil akhir.";
   }
@@ -828,9 +818,15 @@ function renderGame() {
     const scores = order.map(uid => players[uid]).filter(Boolean);
     const high = Math.max(0, ...scores.map(p => Number(p.score) || 0));
     const winners = scores.filter(p => (Number(p.score) || 0) === high);
-    $("winnerText").textContent = winners.length
-      ? "🏆 Pemenang: " + winners.map(p => p.name).join(", ") + " — " + high + " poin!"
-      : "Permainan selesai.";
+    
+    let winnerMsg = "";
+    if (winners.length === 1) {
+      winnerMsg = "🏆 Pemenang: " + escapeHTML(winners[0].name) + " dengan " + high + " poin!";
+    } else {
+      winnerMsg = "🏆 Pemenang (Seri): " + winners.map(p => escapeHTML(p.name)).join(", ") + " dengan " + high + " poin!";
+    }
+    
+    $("winnerText").innerHTML = `<p style="color: #f4c96b; text-align: center; font-size: 1.1rem;">${winnerMsg}</p>`;
   } else {
     $("winnerPanel").classList.add("hidden");
   }
@@ -845,42 +841,53 @@ async function playCard(cardId) {
   try {
     await updateRoom(state => {
       if (state.status !== "playing") {
+        busy = false;
         return;
       }
 
       if (currentPlayerId(state) !== currentUser.uid) {
+        busy = false;
         return;
       }
 
       const p = state.players[currentUser.uid];
-      if (!p || !p.hand) {
+      if (!p || !Array.isArray(p.hand)) {
+        busy = false;
         return;
       }
 
       const idx = p.hand.findIndex(c => c.id === cardId);
       if (idx < 0) {
-        state.lastMessage = "Kartu tidak ditemukan di tanganmu.";
+        state.lastMessage = "Kartu tidak ditemukan.";
+        busy = false;
         return state;
       }
 
       const card = p.hand[idx];
-      const board = state.board || [];
+      if (!Array.isArray(state.board)) {
+        state.board = [];
+      }
+      const board = state.board;
 
       if (board.length >= 3) {
-        state.lastMessage = "Meja penuh. Tunggu penyelesaian kalimat.";
+        state.lastMessage = "Meja penuh.";
+        busy = false;
         return state;
       }
 
       if (board.length === 0 && card.type !== "subject") {
-        state.lastMessage = "❌ Kalimat harus dimulai dengan Subject.";
+        state.lastMessage = "❌ Harus Subject!";
+        busy = false;
         return state;
       }
       if (board.length === 1 && card.type !== "tobe") {
-        state.lastMessage = "❌ Sekarang pilih To Be.";
+        state.lastMessage = "❌ Harus To Be!";
+        busy = false;
         return state;
       }
       if (board.length === 2 && card.type !== "complement") {
-        state.lastMessage = "❌ Sekarang pilih Complement.";
+        state.lastMessage = "❌ Harus Complement!";
+        busy = false;
         return state;
       }
 
@@ -893,15 +900,26 @@ async function playCard(cardId) {
           p.score = (Number(p.score) || 0) + 5;
           state.lastMessage = "✅ \"" + sentence + "\" Benar! +5 poin.";
         } else {
-          state.lastMessage = "❌ \"" + sentence + "\" Salah, tidak dapat poin.";
+          state.lastMessage = "❌ \"" + sentence + "\" Salah.";
         }
 
-        state.discard = (state.discard || []).concat(state.board);
+        if (!Array.isArray(state.discard)) {
+          state.discard = [];
+        }
+        state.discard = state.discard.concat(state.board);
         state.board = [];
-        nextTurn(state);
-        finishIfNeeded(state);
-      } else {
-        state.lastMessage = p.name + " memainkan " + card.word + ".";
+
+        const order = state.playerOrder || [];
+        if (order.length) {
+          state.turnIndex = ((Number(state.turnIndex) || 0) + 1) % order.length;
+        }
+
+        // Check if game finished
+        const handsEmpty = order.every(uid => !(state.players[uid]?.hand || []).length);
+        if (!(state.deck || []).length && handsEmpty && !(state.board || []).length) {
+          state.status = "finished";
+          state.lastMessage = "🎉 Permainan selesai! Semua kartu habis.";
+        }
       }
 
       return state;
@@ -920,31 +938,50 @@ async function drawCard() {
   try {
     await updateRoom(state => {
       if (state.status !== "playing" || currentPlayerId(state) !== currentUser.uid) {
+        busy = false;
         return;
       }
 
       let deck = state.deck || [];
+      
       if (!deck.length && (state.discard || []).length) {
         deck = shuffle([...state.discard]);
         state.discard = [];
-        state.deck = deck;
       }
 
       if (!deck.length) {
         state.lastMessage = "❌ Tumpukan kartu habis!";
+        const order = state.playerOrder || [];
+        if (order.length) {
+          state.turnIndex = ((Number(state.turnIndex) || 0) + 1) % order.length;
+        }
+        
+        const handsEmpty = order.every(uid => !(state.players[uid]?.hand || []).length);
+        if (!(state.board || []).length && handsEmpty) {
+          state.status = "finished";
+          state.lastMessage = "🎉 Permainan selesai!";
+        }
+        
+        state.deck = deck;
+        bus = false;
         return state;
       }
 
       const p = state.players[currentUser.uid];
       const card = deck.pop();
-      if (!p.hand) p.hand = [];
+      if (!Array.isArray(p.hand)) {
+        p.hand = [];
+      }
       p.hand.push(card);
 
       state.deck = deck;
       state.lastMessage = p.name + " mengambil kartu.";
 
-      nextTurn(state);
-      finishIfNeeded(state);
+      const order = state.playerOrder || [];
+      if (order.length) {
+        state.turnIndex = ((Number(state.turnIndex) || 0) + 1) % order.length;
+      }
+
       return state;
     });
   } catch (err) {
@@ -961,12 +998,18 @@ async function passCard() {
   try {
     await updateRoom(state => {
       if (state.status !== "playing" || currentPlayerId(state) !== currentUser.uid) {
+        busy = false;
         return;
       }
 
       const p = state.players[currentUser.uid];
-      state.lastMessage = p.name + " skip giliran.";
-      nextTurn(state);
+      state.lastMessage = p.name + " skip.";
+      
+      const order = state.playerOrder || [];
+      if (order.length) {
+        state.turnIndex = ((Number(state.turnIndex) || 0) + 1) % order.length;
+      }
+
       return state;
     });
   } catch (err) {
@@ -983,6 +1026,7 @@ async function startGame() {
   try {
     await updateRoom(state => {
       if (state.status !== "waiting" || state.hostUid !== currentUser.uid) {
+        busy = false;
         return;
       }
       state.status = "playing";
@@ -1004,10 +1048,12 @@ async function restartGame() {
   try {
     await updateRoom(state => {
       if (state.hostUid !== currentUser.uid) {
+        busy = false;
         return;
       }
       const deck = makeDeck();
       const order = state.playerOrder || [];
+      
       order.forEach(uid => {
         if (state.players[uid]) {
           state.players[uid].hand = dealCards(deck, 5);
@@ -1020,7 +1066,7 @@ async function restartGame() {
       state.board = [];
       state.turnIndex = 0;
       state.status = "playing";
-      state.lastMessage = "🔄 Permainan dimulai kembali!";
+      state.lastMessage = "🔄 Permainan dimulai lagi!";
       return state;
     });
   } catch (err) {
@@ -1037,8 +1083,6 @@ function copyCode() {
     const old = btn.textContent;
     btn.textContent = "✓ Tersalin!";
     setTimeout(() => { btn.textContent = old; }, 2000);
-  }).catch(err => {
-    console.error("Error:", err);
   });
 }
 
@@ -1062,7 +1106,6 @@ async function leaveRoom() {
 
   currentRoom = null;
   roomState = null;
-
   if (roomListener) {
     roomListener.off();
     roomListener = null;
