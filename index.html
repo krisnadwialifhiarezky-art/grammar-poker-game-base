@@ -81,30 +81,6 @@ body{background:radial-gradient(ellipse at 50% -10%,#8a5a16 0,#39200b 48%,#100b0
  --shadow:0 18px 45px #08031380;
 }
 *{scroll-behavior:smooth}
- <script type="module">
-  // Import the functions you need from the SDKs you need
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
-  import { getAnalytics } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-analytics.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
-
-  // Your web app's Firebase configuration
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-  const firebaseConfig = {
-    apiKey: "AIzaSyBW9hujvnshkexn6cEb8IZ13mPuAo6QfsA",
-    authDomain: "grammar-7d65e.firebaseapp.com",
-    databaseURL: "https://grammar-7d65e-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "grammar-7d65e",
-    storageBucket: "grammar-7d65e.firebasestorage.app",
-    messagingSenderId: "483154907796",
-    appId: "1:483154907796:web:3d314fb507904fefaa1a81",
-    measurementId: "G-YGW6GNXKLZ"
-  };
-
-  // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-  const analytics = getAnalytics(app);
-</script>
 body{
  color:#241533;
  background:
@@ -321,6 +297,11 @@ body{background:radial-gradient(ellipse at 50% -10%,#8a5a16 0,#39200b 48%,#100b0
 </div>
 <script type="module">
 
+// Firebase SDK imports: diperlukan untuk autentikasi dan multiplayer online.
+import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
+import { getDatabase, ref, set, get, onValue, runTransaction } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
+
 /* Solo Mode: tidak memerlukan Firebase atau koneksi multiplayer. */
 const firebaseConfig = {
  apiKey:"AIzaSyBW9hujvnshkexn6cEb8IZ13mPuAo6QfsA",
@@ -357,7 +338,7 @@ function advance(){if(mode==="solo"){current=0;if(deck.length===0&&players[0]&&p
 function makePracticeCard(){let n=Math.random();if(n<0.34)return {id:"practice-s-"+Date.now()+"-"+Math.random(),text:subjects[Math.floor(Math.random()*subjects.length)],type:"subject"};if(n<0.67){let values=["am","is","are"];return {id:"practice-t-"+Date.now()+"-"+Math.random(),text:values[Math.floor(Math.random()*values.length)],type:"tobe"}}return {id:"practice-c-"+Date.now()+"-"+Math.random(),text:complements[Math.floor(Math.random()*complements.length)],type:"complement"}}
 function refill(p){if(mode==="solo"){while(p.hand.length<5)p.hand.push(makePracticeCard());return}while(p.hand.length<3&&deck.length>0)p.hand.push(deck.pop())}
 function playCard(id){if(gameOver||current!==0||mode!=="solo")return;let p=players[current],idx=p.hand.findIndex(c=>c.id===id);if(idx<0)return;let c=p.hand[idx];p.hand.splice(idx,1);board.push(c);addLog(`${p.name} memainkan "${c.text}".`);selected=null;if(board.length===3){let sentence=board.map(x=>x.text).join(" ");let correct=board[0].type==="subject"&&board[1].type==="tobe"&&board[2].type==="complement"&&validToBe(board[0].text,board[1].text);if(correct){streak++;let bonus=streak>=3?2:0;p.score+=5+bonus;stack+=pot;pot=0;missionIndex=Math.min(missionIndex+1,missions.length-1);addLog(`✅ Kalimat benar: ${sentence}. +${5+bonus} poin${bonus?" (BONUS STREAK!)":""}!`);toast(streak>=3?"🔥 STREAK! Bonus +2 poin!":"✨ PERFECT! +5 POIN");const ce=$("celebration"),ct=$("celebrationText");if(ce&&ct){ct.textContent=streak>=5?"👑 GRAMMAR LEGEND!":streak>=3?"🔥 HOT STREAK!":"✨ NICE HAND!";ce.classList.remove("show");void ce.offsetWidth;ce.classList.add("show");setTimeout(()=>ce.classList.remove("show"),1400)}$("sentence")?.classList.add("winflash");setTimeout(()=>$("sentence")?.classList.remove("winflash"),900)}else{streak=0;addLog(`❌ Susunan kurang tepat: ${sentence}. Kartu yang dimainkan tetap terpakai, skor tidak bertambah.`);toast("💡 Susunannya belum tepat. Coba lagi!")}board=[];refill(p);pendingWinner=true;render();return}refill(p);advance()}
-function drawCard(){if(mode==="solo"){if(current!==0||gameOver)return;let c=makePracticeCard();players[0].hand.push(c);addLog(`🎴 Kamu mengambil kartu "${c.text}" dari tumpukan.`);toast("Kartu baru masuk ke tangan!");render();return}if(mode==="online"){onlineDrawCard?.();return}}
+function drawCard(){if(mode==="solo"){if(current!==0||gameOver)return;let c=makePracticeCard();players[0].hand.push(c);addLog(`🎴 Kamu mengambil kartu "${c.text}" dari tumpukan.`);toast("Kartu baru masuk ke tangan!");render();return}if(mode==="online"){window.drawCard();return}}
 function betChips(){if(mode!=="solo"||current!==0)return;if(stack<5){toast("Stack habis! Mulai ronde baru.");return}stack-=5;pot+=5;addLog("🪙 Kamu memasang 5 chip latihan ke pot.");toast("Bet 5 chip!");render()}
 function checkHand(){if(mode!=="solo"||current!==0)return;addLog("✓ CHECK — kamu lanjut menyusun kombinasi kalimat.");toast("Check! Lanjutkan ronde.");render()}
 function discardLastCard(){if(mode!=="solo"||current!==0||gameOver)return;const p=players[0];if(board.length){const c=board.pop();addLog(`🗑️ Kartu "${c.text}" dibuang dari papan dan tidak dikembalikan.`);toast("Kartu dibuang!");render();return}if(!p.hand.length){toast("Tidak ada kartu untuk dibuang.");return}const c=p.hand.pop();addLog(`🗑️ Kamu membuang kartu "${c.text}". Kartu tidak akan digunakan lagi.`);p.hand.push(makePracticeCard());toast("Kartu dibuang — kartu latihan baru didapat!");render()}
