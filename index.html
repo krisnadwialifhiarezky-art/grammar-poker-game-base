@@ -232,6 +232,7 @@ body{background:radial-gradient(ellipse at 50% -10%,#8a5a16 0,#39200b 48%,#100b0
 @keyframes celebrate{0%{transform:scale(.3) rotate(-10deg)}70%{transform:scale(1.18) rotate(3deg)}100%{transform:scale(1)}}
 @keyframes fadeAway{0%,70%{opacity:1}100%{opacity:0}}
 @media(max-width:600px){.tabletop{border-width:7px!important;border-radius:24px!important;padding:12px!important}.card{min-width:75px;min-height:105px;font-size:.95rem}.challengeStat{font-size:.9rem}.pokerActions{gap:5px}.pokerPill{font-size:.8rem}}
+.card:disabled{opacity:.48!important;filter:grayscale(.35);cursor:not-allowed!important;transform:none!important;box-shadow:0 3px 0 #777!important}.deck:disabled{opacity:.45;cursor:not-allowed;filter:grayscale(.4)}
 </style>
 
 </head>
@@ -242,8 +243,8 @@ body{background:radial-gradient(ellipse at 50% -10%,#8a5a16 0,#39200b 48%,#100b0
 <section id="home" class="panel">
   <h2>🎮 Pilih Mode Permainan</h2>
   <div class="grid">
-    <div class="heroCard"><div class="icon">📚</div><h2>Solo Mode — Latihan</h2><p class="muted">Berlatih sendiri memakai satu dek fisik berisi 60 kartu. Setiap kartu hanya tersedia satu kali dan kartu terpakai tidak kembali.</p><button onclick="startSolo()">Mulai Latihan</button></div>
-    <div class="heroCard"><div class="icon">🌐</div><h2>Mode Online</h2><p class="muted">Bermain bersama teman secara online. Buat room atau gabung menggunakan kode room. Mendukung 2–6 pemain.</p><button onclick="showOnline()">Main Online</button></div>
+    <div class="heroCard"><div class="icon">📚</div><h2>Solo Mode — Latihan</h2><p class="muted">Mode latihan bebas: tangan boleh lebih dari 5 kartu. Ambil kartu kapan saja selama dek 60 kartu masih tersedia. Setiap kartu fisik hanya tersedia satu kali.</p><button onclick="startSolo()">Mulai Latihan</button></div>
+    <div class="heroCard"><div class="icon">🌐</div><h2>Mode Online</h2><p class="muted">Bermain bersama teman secara online. Buat room atau gabung menggunakan kode 6 karakter. Host mulai setelah 2–6 pemain bergabung. Host dapat memulai setelah minimal 2 pemain bergabung.</p><button onclick="showOnline()">Main Online</button></div>
     <div class="heroCard"><div class="icon">📖</div><h2>Cara Bermain</h2><p class="muted">Lihat aturan dan contoh kartu Module 1.</p><button class="secondary" onclick="showRules()">Baca Aturan</button></div>
   </div>
   <div id="homeMsg" class="status hidden"></div>
@@ -264,12 +265,12 @@ body{background:radial-gradient(ellipse at 50% -10%,#8a5a16 0,#39200b 48%,#100b0
  <ul class="rulelist">
  <li><b>Tujuan:</b> membuat kalimat bahasa Inggris dengan pola <b>Subject + To Be + Complement</b>, contohnya <i>I am happy.</i></li>
  <li><b>Pemain:</b> 1 pemain manusia melawan 5 komputer (AI).</li>
- <li><b>Kartu awal:</b> setiap pemain mendapat 5 kartu. Tangan tidak boleh lebih dari 5 kartu.</li>
- <li><b>Giliran:</b> jika papan kosong, mainkan Subject; berikutnya To Be; terakhir Complement.</li>
+ <li><b>Kartu awal:</b> Online mulai dengan 5 kartu dan maksimal 5 kartu di tangan. Solo tidak dibatasi 5 kartu, tetapi tetap memakai dek fisik 60 kartu.</li>
+ <li><b>Giliran Online:</b> pemain bergantian. Pemain yang sedang mendapat giliran memainkan satu kartu yang cocok, mengambil satu kartu, atau melakukan Pass. Urutan kalimat tetap Subject → To Be → Complement.</li>
  <li><b>Kecocokan:</b> I → am; he/she/it dan kata benda tunggal → is; you/we/they dan subjek jamak → are.</li>
  <li><b>Skor:</b> pemain yang menaruh kartu terakhir hingga kalimat benar mendapat 5 poin.</li>
  <li><b>Kartu selesai:</b> kartu yang sudah digunakan dibuang permanen dan tidak dapat dipakai kembali. Papan kalimat dikosongkan setelah kalimat benar.</li>
- <li><b>Ambil kartu:</b> pemain dapat mengambil kartu jika tidak bisa bermain. Maksimal 5 kartu di tangan.</li>
+ <li><b>Ambil kartu:</b> Solo dapat mengambil kartu tanpa batas jumlah di tangan selama dek masih tersedia. Online hanya boleh mengambil kartu saat gilirannya dan jika tangan kurang dari 5 kartu; mengambil kartu mengakhiri giliran.</li>
  <li><b>Skip:</b> jika tidak memiliki kartu yang cocok, pemain boleh skip. Jika semua pemain skip pada satu rangkaian kalimat, rangkaian dibatalkan; kartu yang sudah dimainkan tetap terpakai.</li>
  <li><b>Akhir permainan:</b> ketika kartu habis atau tidak ada langkah yang bisa dilanjutkan. Skor tertinggi menjadi pemenang.</li>
  </ul>
@@ -281,12 +282,13 @@ body{background:radial-gradient(ellipse at 50% -10%,#8a5a16 0,#39200b 48%,#100b0
  <div class="gamegrid">
   <main class="tabletop">
    <div id="players" class="players"></div>
-   <div class="pokerActions"><span class="pokerPill">🪙 STACK <b id="stackValue">100</b></span><span class="pokerPill">🏆 POT <b id="potValue">0</b></span><span class="pokerPill">🎴 DRAW <b id="drawValue">∞</b></span></div><div class="sentenceTitle">🃏 GRAMMAR COMMUNITY TABLE</div>
+   <div class="pokerActions"><span class="pokerPill">🪙 STACK <b id="stackValue">100</b></span><span class="pokerPill">🏆 POT <b id="potValue">0</b></span><span class="pokerPill">🎴 DRAW <b id="drawValue">60</b></span></div><div class="sentenceTitle">🃏 GRAMMAR COMMUNITY TABLE</div>
    <div id="sentence" class="sentence"></div>
+   <div id="connectionStatus" class="small" style="text-align:center;margin:8px 0;color:#ffe8a0">Status koneksi belum tersedia.</div>
    <div id="turnmsg" class="turnmsg">Siap bermain!</div><div id="challengeBar"><div><div class="challengeHint">🎯 MISI LATIHAN</div><div id="missionText" class="challengeStat">Buat kalimat pertamamu!</div></div><div><div class="challengeHint">🔥 STREAK BENAR</div><div id="streakText" class="challengeStat">0 berturut-turut</div></div><div><div class="challengeHint">🏅 TOTAL SKOR</div><div id="scoreText" class="challengeStat">0 poin</div></div></div>
    <div class="sentenceTitle">♠ YOUR HAND — PILIH KARTU</div><div id="hand" class="hand"></div>
    <div class="actions"><button class="blue" id="drawBtn" onclick="drawCard()">🎴 DRAW CARD</button><button class="secondary" id="discardBtn" onclick="discardLastCard()">🗑️ DISCARD</button><button class="secondary" id="betBtn" onclick="betChips()">🪙 BET 5</button><button class="secondary" id="checkBtn" onclick="checkHand()">✓ CHECK</button><button class="danger" id="skipBtn" onclick="skipTurn()">⏭ PASS</button><button class="green hidden" id="nextBtn" onclick="nextAfterWin()">Lanjutkan Giliran ➜</button><button class="hidden" id="onlineStartBtn" onclick="startOnlineGame()">▶ Mulai Permainan (Host)</button></div>
-   <div class="small" style="text-align:center;margin-top:12px;color:#ffebba">Pilih kartu sesuai jenis slot. To Be yang tidak cocok dengan Subject tidak bisa dimainkan. Kalimat benar = 5 poin. Tiga jawaban benar berturut-turut mendapat bonus +2 poin. Buang kartu untuk mengganti strategi.</div>
+   <div class="small" style="text-align:center;margin-top:12px;color:#ffebba">SOLO: DRAW BERULANG, TANPA BATAS JUMLAH KARTU DI TANGAN (selama dek masih tersedia). Mode online: maksimal 5 kartu per pemain. Saat giliranmu, semua kartu bisa ditekan untuk dicoba. Jika salah, kartu tetap di tangan dan giliran berpindah. Kalimat benar = 5 poin. Tiga jawaban benar berturut-turut mendapat bonus +2 poin. Buang kartu untuk mengganti strategi.</div>
   </main>
   <aside class="side"><button class="deck" id="deckPile" onclick="drawCard()" aria-label="Ambil satu kartu dari tumpukan">🂠 DRAW PILE<br><span id="deckCount">∞</span> kartu tersisa<br><small>TEKAN UNTUK MENGAMBIL</small></button><h3>📜 Riwayat Permainan</h3><div id="log" class="log"></div></aside>
  </div>
@@ -304,14 +306,14 @@ import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/1
 
 /* Solo Mode: tidak memerlukan Firebase atau koneksi multiplayer. */
 const firebaseConfig = {
- apiKey:"AIzaSyCaWhxVs0FVAgtmqibzY8rDxeQitCmy0Hk",
- authDomain:"grammar-poker.firebaseapp.com",
- databaseURL:"https://grammar-poker-default-rtdb.asia-southeast1.firebasedatabase.app",
- projectId:"grammar-poker",
- storageBucket:"grammar-poker.firebasestorage.app",
- messagingSenderId:"406151323956",
- appId:"1:406151323956:web:62c1ce55f38cc2dfe18561",
- measurementId:"G-H9QWVQ2VNT"
+ apiKey: "AIzaSyCaWhxVs0FVAgtmqibzY8rDxeQitCmy0Hk",
+ authDomain: "grammar-poker.firebaseapp.com",
+ databaseURL: "https://grammar-poker-default-rtdb.asia-southeast1.firebasedatabase.app",
+ projectId: "grammar-poker",
+ storageBucket: "grammar-poker.firebasestorage.app",
+ messagingSenderId: "406151323956",
+ appId: "1:406151323956:web:62c1ce55f38cc2dfe18561",
+ measurementId: "G-H9QWVQ2VNT"
 };
 const $=id=>document.getElementById(id);
 let streak=0, missionIndex=0, stack=100, pot=0, seenSentences=new Set();const missions=["Buat kalimat pertamamu!","Gunakan I + am dengan benar.","Buat kalimat memakai He / She / It.","Coba gunakan They + are.","Raih 3 kalimat benar berturut-turut!"];function toast(msg){const el=document.getElementById("toast");if(!el)return;el.textContent=msg;el.classList.add("show");setTimeout(()=>el.classList.remove("show"),1800)}
@@ -348,19 +350,59 @@ function playable(card){
  if(card.type==="tobe"&&board.length===1)return validToBe(board[0].text,card.text);
  return true;
 }
-function render(){if(mode==="online")return; $("players").innerHTML=players.map((p,i)=>`<div class="player ${i===current&&!gameOver?"active":""}"><div class="avatar">${p.ai?"🤖":i===0?"👑":"🧑‍🎓"}</div><b>${escapeHtml(p.name)}</b><div class="score">${p.score} poin</div><div class="small">${p.ai?"Komputer":(i===current?"Giliran aktif":"Pemain")}</div></div>`).join("");$("sentence").innerHTML=[0,1,2].map(i=>{let c=board[i];let cls=i===1?"to":i===2?"comp":"";return `<div class="slot ${cls} ${c?"filled":""}">${c?escapeHtml(c.text):["Subject","To Be","Complement"][i]}<small>${c?["Subject","To Be","Complement"][i]:"Letakkan kartu"}</small></div>`}).join("");$("hand").innerHTML=(players[0]?.hand||[]).map(c=>`<button class="card ${c.type} ${selected===c.id?"selected":""}" data-id="${c.id}">${escapeHtml(c.text)}<small>${c.type==="tobe"?"TO BE":c.type.toUpperCase()}</small></button>`).join("");$("hand").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>playCard(b.dataset.id)));$("deckCount").textContent=deck.length;if($("missionText"))$("missionText").textContent=missions[Math.min(missionIndex,missions.length-1)];if($("streakText"))$("streakText").textContent=streak+" berturut-turut";if($("scoreText"))$("scoreText").textContent=(players[0]?.score||0)+" poin";if($("stackValue"))$("stackValue").textContent=stack;if($("potValue"))$("potValue").textContent=pot;if($("drawValue"))$("drawValue").textContent="∞";$("turnmsg").textContent=gameOver?"Permainan selesai!":current===0?"Giliran kamu — pilih kartu yang sesuai.":`Giliran ${players[current]?.name||""}...`;const humanTurn=current===0&&!gameOver;$("drawBtn").disabled=!humanTurn||players[0].hand.length>=5||deck.length===0;$("skipBtn").disabled=!humanTurn;$("hand").querySelectorAll("button").forEach(b=>{let c=players[0].hand.find(x=>x.id===b.dataset.id);b.disabled=!humanTurn||!playable(c)});$("nextBtn").classList.toggle("hidden",!pendingWinner);$("log").innerHTML=logItems.map(x=>`<div>${escapeHtml(x)}</div>`).join("");if(!gameOver&&current!==0&&mode==="solo")setTimeout(aiTurn,650)}
+function render(){if(mode==="online")return; $("players").innerHTML=players.map((p,i)=>`<div class="player ${i===current&&!gameOver?"active":""}"><div class="avatar">${p.ai?"🤖":i===0?"👑":"🧑‍🎓"}</div><b>${escapeHtml(p.name)}</b><div class="score">${p.score} poin</div><div class="small">${p.ai?"Komputer":(i===current?"Giliran aktif":"Pemain")}</div></div>`).join("");$("sentence").innerHTML=[0,1,2].map(i=>{let c=board[i];let cls=i===1?"to":i===2?"comp":"";return `<div class="slot ${cls} ${c?"filled":""}">${c?escapeHtml(c.text):["Subject","To Be","Complement"][i]}<small>${c?["Subject","To Be","Complement"][i]:"Letakkan kartu"}</small></div>`}).join("");$("hand").innerHTML=(players[0]?.hand||[]).map(c=>`<button type="button" class="card ${c.type} ${selected===c.id?"selected":""}" data-id="${c.id}" title="Pilih kartu untuk mencoba susunan kalimat">${escapeHtml(c.text)}<small>${c.type==="tobe"?"TO BE":c.type.toUpperCase()}</small></button>`).join("");$("hand").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>playCard(b.dataset.id)));$("deckCount").textContent=deck.length;if($("missionText"))$("missionText").textContent=missions[Math.min(missionIndex,missions.length-1)];if($("streakText"))$("streakText").textContent=streak+" berturut-turut";if($("scoreText"))$("scoreText").textContent=(players[0]?.score||0)+" poin";if($("stackValue"))$("stackValue").textContent=stack;if($("potValue"))$("potValue").textContent=pot;if($("drawValue"))$("drawValue").textContent=mode==="solo"?"Bebas":deck.length;$("turnmsg").textContent=gameOver?"Permainan selesai!":current===0?"Giliran kamu — pilih kartu dan uji susunanmu.":`Giliran ${players[current]?.name||""}...`;const humanTurn=current===0&&!gameOver;$("drawBtn").disabled=!humanTurn||deck.length===0;$("skipBtn").disabled=!humanTurn;$("hand").querySelectorAll("button").forEach(b=>{b.disabled=!humanTurn});$("nextBtn").classList.toggle("hidden",!pendingWinner);$("log").innerHTML=logItems.map(x=>`<div>${escapeHtml(x)}</div>`).join("");if(!gameOver&&current!==0&&mode==="solo")setTimeout(aiTurn,650)}
 function advance(){if(mode==="solo"){current=0;if(deck.length===0&&players[0]&&players[0].hand.length===0){finishGame();return}render();return}current=(current+1)%players.length;if(current===0&&deck.length===0&&players.every(p=>p.hand.length===0)){finishGame();return}render()}
 function refill(p){
- const target=mode==="solo"?5:5;
- while(p.hand.length<target&&deck.length>0)p.hand.push(deck.pop());
+ // Tidak ada auto-refill. Solo mengambil kartu secara manual tanpa batas ukuran tangan;
+ // Online mengambil kartu hanya saat giliran dan maksimal 5 kartu.
+ return;
 }
-function playCard(id){if(gameOver||current!==0||mode!=="solo")return;let p=players[current],idx=p.hand.findIndex(c=>c.id===id);if(idx<0)return;let c=p.hand[idx];p.hand.splice(idx,1);board.push(c);addLog(`${p.name} memainkan "${c.text}".`);selected=null;if(board.length===3){let sentence=board.map(x=>x.text).join(" ");let sentenceKey=sentence.toLowerCase();let correct=board[0].type==="subject"&&board[1].type==="tobe"&&board[2].type==="complement"&&validToBe(board[0].text,board[1].text)&&!seenSentences.has(sentenceKey);if(correct){seenSentences.add(sentenceKey);streak++;let bonus=streak>=3?2:0;p.score+=5+bonus;stack+=pot;pot=0;missionIndex=Math.min(missionIndex+1,missions.length-1);addLog(`✅ Kalimat benar: ${sentence}. +${5+bonus} poin${bonus?" (BONUS STREAK!)":""}!`);toast(streak>=3?"🔥 STREAK! Bonus +2 poin!":"✨ PERFECT! +5 POIN");const ce=$("celebration"),ct=$("celebrationText");if(ce&&ct){ct.textContent=streak>=5?"👑 GRAMMAR LEGEND!":streak>=3?"🔥 HOT STREAK!":"✨ NICE HAND!";ce.classList.remove("show");void ce.offsetWidth;ce.classList.add("show");setTimeout(()=>ce.classList.remove("show"),1400)}$("sentence")?.classList.add("winflash");setTimeout(()=>$("sentence")?.classList.remove("winflash"),900)}else{streak=0;addLog(`❌ Susunan kurang tepat: ${sentence}. Kartu yang dimainkan tetap terpakai, skor tidak bertambah.`);toast("💡 Susunannya belum tepat. Coba lagi!")}board=[];refill(p);pendingWinner=true;render();return}refill(p);advance()}
+function playCard(id){
+ if(gameOver||current!==0||mode!=="solo")return;
+ const p=players[current],idx=p.hand.findIndex(c=>c.id===id);
+ if(idx<0)return;
+ const c=p.hand[idx];
+ const slot=board.length;
+ // Semua kartu bisa ditekan. Pemeriksaan hanya memberi umpan balik; kartu salah tidak dibuang.
+ if(slot===0&&c.type!=="subject"){
+  addLog(`❌ Pilihan "${c.text}" belum tepat untuk susunan yang sedang dibuat. Kartu tetap di tangan.`);
+  toast("❌ Pilihan belum tepat. Coba pikirkan lagi!");return;
+ }
+ if(slot===1&&(c.type!=="tobe"||!validToBe(board[0].text,c.text))){
+  addLog(`❌ Pilihan "${c.text}" belum cocok dengan susunan saat ini. Kartu tetap di tangan.`);
+  toast("❌ Belum cocok. Coba kartu lain!");return;
+ }
+ if(slot===2&&c.type!=="complement"){
+  addLog(`❌ Pilihan "${c.text}" belum tepat untuk melengkapi susunan. Kartu tetap di tangan.`);
+  toast("❌ Pilihan belum tepat. Coba lagi!");return;
+ }
+ if(slot===2){
+  const sentence=[board[0].text,board[1].text,c.text].join(" ");
+  const sentenceKey=sentence.toLowerCase();
+  if(seenSentences.has(sentenceKey)){
+   addLog(`❌ Kalimat "${sentence}" sudah pernah dibuat. Kartu tetap di tangan.`);
+   toast("❌ Kalimat ini sudah pernah dibuat. Coba kombinasi lain!");return;
+  }
+  // Semua tiga bagian sudah cocok: gunakan kartu complement dan beri penghargaan.
+  p.hand.splice(idx,1);board.push(c);seenSentences.add(sentenceKey);streak++;
+  const bonus=streak>=3?2:0;p.score+=5+bonus;stack+=pot;pot=0;missionIndex=Math.min(missionIndex+1,missions.length-1);
+  addLog(`✅ Kalimat benar: ${sentence}. +${5+bonus} poin${bonus?" (BONUS STREAK!)":""}!`);
+  toast(streak>=3?"🔥 Hebat! Kalimat benar — bonus streak +2 poin!":"✨ Hebat! Kalimat benar — +5 poin!");
+  const ce=$("celebration"),ct=$("celebrationText");if(ce&&ct){ct.textContent=streak>=5?"👑 GRAMMAR LEGEND!":streak>=3?"🔥 HOT STREAK!":"✨ NICE HAND!";ce.classList.remove("show");void ce.offsetWidth;ce.classList.add("show");setTimeout(()=>ce.classList.remove("show"),1400)}
+  $("sentence")?.classList.add("winflash");setTimeout(()=>$("sentence")?.classList.remove("winflash"),900);
+  board=[];pendingWinner=true;render();return;
+ }
+ // Subject dan To Be yang benar masuk ke meja; kartu yang tidak cocok tidak pernah sampai ke sini.
+ p.hand.splice(idx,1);board.push(c);selected=null;
+ addLog(`✅ Bagus! "${c.text}" cocok dengan susunan sejauh ini.`);
+ toast(slot===0?"👏 Benar! Pilihanmu cocok. Lanjutkan!":"👏 Tepat! Susunannya cocok sejauh ini.");
+ render();
+}
 function drawCard(){
  if(mode==="online"){window.drawCard();return}
  if(current!==0||gameOver)return;
  const p=players[0];
- if(p.hand.length>=5){toast("Tangan sudah berisi 5 kartu. Buang satu kartu lama dulu.");return}
- if(!deck.length){toast("Tumpukan 60 kartu sudah habis.");return}
+ if(!deck.length){toast("Tumpukan 60 kartu sudah habis. Tidak ada kartu baru tersisa.");return}
  const c=deck.pop();p.hand.push(c);
  addLog(`🎴 Kamu mengambil kartu "${c.text}" dari tumpukan. (${deck.length} tersisa)`);
  toast("Kartu baru diambil dari tumpukan!");
@@ -368,7 +410,7 @@ function drawCard(){
 }
 function betChips(){if(mode!=="solo"||current!==0)return;if(stack<5){toast("Stack habis! Mulai ronde baru.");return}stack-=5;pot+=5;addLog("🪙 Kamu memasang 5 chip latihan ke pot.");toast("Bet 5 chip!");render()}
 function checkHand(){if(mode!=="solo"||current!==0)return;addLog("✓ CHECK — kamu lanjut menyusun kombinasi kalimat.");toast("Check! Lanjutkan ronde.");render()}
-function discardLastCard(){if(mode!=="solo"||current!==0||gameOver)return;const p=players[0];if(board.length){const c=board.pop();addLog(`🗑️ Kartu "${c.text}" dibuang dari papan dan tidak dikembalikan.`);toast("Kartu dibuang!");render();return}if(!p.hand.length){toast("Tidak ada kartu untuk dibuang.");return}const c=p.hand.pop();addLog(`🗑️ Kamu membuang kartu "${c.text}". Kartu tidak akan digunakan lagi.`);if(deck.length&&p.hand.length<5){const fresh=deck.pop();p.hand.push(fresh);addLog(`🎴 Mengambil pengganti "${fresh.text}" dari tumpukan. (${deck.length} tersisa)`);toast("Kartu dibuang dan diganti dari tumpukan!")}else{toast("Kartu dibuang. Tumpukan sudah habis atau tangan belum perlu diisi.")}render()}
+function discardLastCard(){if(mode!=="solo"||current!==0||gameOver)return;const p=players[0];if(board.length){const c=board.pop();addLog(`🗑️ Kartu "${c.text}" dibuang dari papan dan tidak dikembalikan.`);toast("Kartu dibuang!");render();return}if(!p.hand.length){toast("Tidak ada kartu untuk dibuang.");return}const c=p.hand.pop();addLog(`🗑️ Kamu membuang kartu "${c.text}". Kartu tidak akan digunakan lagi.`);toast("Kartu dibuang permanen.");render()}
 function skipTurn(){if(mode!=="solo"||current!==0)return;addLog(`${players[0].name} melewati giliran.`);advance()}
 function aiTurn(){if(mode!=="solo"||gameOver||current===0)return;let p=players[current];if(!p)return;let options=p.hand.filter(playable);let difficulty=$("difficulty").value;if(options.length){let c;if(difficulty==="easy")c=options[Math.floor(Math.random()*options.length)];else if(difficulty==="hard")c=options.sort((a,b)=>({subject:0,tobe:1,complement:2}[b.type]-({subject:0,tobe:1,complement:2}[a.type])))[0];else c=options[0];let idx=p.hand.findIndex(x=>x.id===c.id);p.hand.splice(idx,1);board.push(c);addLog(`${p.name} memainkan "${c.text}".`);if(board.length===3){let sentence=board.map(x=>x.text).join(" ");if(validToBe(board[0].text,board[1].text)){p.score+=5;addLog(`✅ ${sentence}. ${p.name} mendapat +5 poin!`)}else addLog(`❌ Kalimat tidak tepat: ${sentence}.`);board=[];refill(p)}else refill(p);advance()}else if(deck.length&&p.hand.length<5){p.hand.push(deck.pop());addLog(`${p.name} mengambil kartu.`);advance()}else{addLog(`${p.name} skip.`);advance()}}
 window.nextAfterWin=()=>{pendingWinner=false;if(players[0].score>=30){finishGame();return}advance()};
@@ -380,32 +422,148 @@ function firebaseReady(){return Boolean(firebaseConfig.apiKey && firebaseConfig.
 async function connectFirebase(){if(!firebaseReady())throw new Error("Mode online belum dikonfigurasi. Buka kode HTML dan isi firebaseConfig dengan konfigurasi Firebase milikmu.");if(!auth){const app=initializeApp(firebaseConfig);db=getDatabase(app);auth=getAuth(app)}if(!auth.currentUser)await signInAnonymously(auth);uid=auth.currentUser.uid}
 function newCode(){const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let s="";for(let i=0;i<6;i++)s+=chars[Math.floor(Math.random()*chars.length)];return s}
 window.createRoom=async()=>{try{mode="online";showMsg("onlineMsg","Menghubungkan ke Firebase...");await connectFirebase();let code=newCode(),name=$("hostName").value.trim()||"Host";let room={code,host:uid,status:"lobby",createdAt:Date.now(),players:{[uid]:{uid,name,score:0,hand:[],joinedAt:Date.now()}},order:[uid],deck:[],board:[],seenSentences:{},current:0,log:["Room dibuat. Menunggu pemain bergabung."]};await set(ref(db,"grammarBachelorRooms/"+code),room);roomCode=code;showMsg("createdCode",`Kode room: ${code} — bagikan kode ini kepada teman.`);$("createdCode").classList.remove("hidden");listenRoom(code);$("modeLabel").textContent="Mode Online";$("roomLabel").textContent="Room "+code;setView("game");}catch(e){showMsg("onlineMsg",`Gagal membuat room: ${e.message}`,true)}};
-window.joinRoom=async()=>{try{mode="online";showMsg("onlineMsg","Mencoba bergabung...");await connectFirebase();let code=$("joinCode").value.trim().toUpperCase(),name=$("joinName").value.trim()||"Pemain";if(!/^[A-Z0-9]{6}$/.test(code))throw new Error("Masukkan kode room 6 karakter.");let rr=ref(db,"grammarBachelorRooms/"+code);let snap=await get(rr);if(!snap.exists())throw new Error("Room tidak ditemukan. Periksa kode room.");let room=snap.val();if(room.status!=="lobby")throw new Error("Permainan sudah dimulai.");if(room.order.length>=6&&!room.players[uid])throw new Error("Room sudah penuh (maksimal 6 pemain).");if(!room.players[uid]){room.players[uid]={uid,name,score:0,hand:[],joinedAt:Date.now()};room.order.push(uid)}await set(rr,room);roomCode=code;listenRoom(code);$("modeLabel").textContent="Mode Online";$("roomLabel").textContent="Room "+code;setView("game")}catch(e){showMsg("onlineMsg",`Gagal bergabung: ${e.message}`,true)}};
-function listenRoom(code){if(unsubscribe)unsubscribe();unsubscribe=onValue(ref(db,"grammarBachelorRooms/"+code),snap=>{if(!snap.exists()){showMsg("onlineMsg","Room sudah tidak tersedia.",true);return}let r=snap.val();roomVersion++;$("onlineStartBtn").classList.toggle("hidden",!(r.status==="lobby"&&r.host===uid));players=(r.order||[]).map(id=>r.players[id]).filter(Boolean).map(p=>({...p,ai:false}));deck=r.deck||[];board=r.board||[];current=r.current||0;logItems=r.log||[];gameOver=r.status==="finished";$("players").innerHTML=players.map((p,i)=>`<div class="player ${i===current?"active":""}"><div class="avatar">🧑‍🎓</div><b>${escapeHtml(p.name)}</b><div class="score">${p.score||0} poin</div><div class="small">${p.uid===uid?"Kamu":"Pemain"}</div></div>`).join("");$("sentence").innerHTML=[0,1,2].map(i=>`<div class="slot ${i===1?"to":i===2?"comp":""} ${board[i]?"filled":""}">${board[i]?escapeHtml(board[i].text):["Subject","To Be","Complement"][i]}<small>${board[i]?board[i].type:"Letakkan kartu"}</small></div>`).join("");let me=r.players[uid];$("hand").innerHTML=(me?.hand||[]).map(c=>`<button class="card ${c.type}" data-id="${c.id}">${escapeHtml(c.text)}<small>${c.type.toUpperCase()}</small></button>`).join("");$("deckCount").textContent=deck.length;if($("missionText"))$("missionText").textContent=missions[Math.min(missionIndex,missions.length-1)];if($("streakText"))$("streakText").textContent=streak+" berturut-turut";if($("scoreText"))$("scoreText").textContent=(players[0]?.score||0)+" poin";if($("stackValue"))$("stackValue").textContent=stack;if($("potValue"))$("potValue").textContent=pot;if($("drawValue"))$("drawValue").textContent="∞";$("turnmsg").textContent=r.status==="lobby"?"Lobby terbuka — host dapat memulai saat semua siap.":players[current]?.uid===uid?"Giliran kamu!":"Menunggu giliran pemain lain.";addLogDisplay(logItems);$("drawBtn").disabled=r.status!=="playing"||!me||players[current]?.uid!==uid||(me.hand||[]).length>=5||deck.length===0;$("skipBtn").disabled=r.status!=="playing"||!me||players[current]?.uid!==uid;$("hand").querySelectorAll("button").forEach(b=>b.onclick=()=>onlinePlay(b.dataset.id));});}
+window.joinRoom=async()=>{try{mode="online";showMsg("onlineMsg","Mencoba bergabung...");await connectFirebase();let code=$("joinCode").value.trim().toUpperCase(),name=$("joinName").value.trim()||"Pemain";if(!/^[A-Z0-9]{6}$/.test(code))throw new Error("Masukkan kode room 6 karakter.");let rr=ref(db,"grammarBachelorRooms/"+code);let result=await runTransaction(rr,room=>{if(!room||room.status!=="lobby")return;room.players=room.players||{};room.order=room.order||[];if(room.players[uid])return room;if(room.order.length>=6)return;room.players[uid]={uid,name,score:0,hand:[],joinedAt:Date.now()};room.order.push(uid);room.log=room.log||[];room.log.push(`${name} bergabung. Pemain ${room.order.length}/6.`);return room});if(!result.committed){let snap=await get(rr);if(!snap.exists())throw new Error("Room tidak ditemukan. Periksa kode room.");let r=snap.val();if(r.status!=="lobby")throw new Error("Permainan sudah dimulai; room tidak menerima pemain baru.");if((r.order||[]).length>=6&&!r.players?.[uid])throw new Error("Room sudah penuh (maksimal 6 pemain).");throw new Error("Gagal bergabung. Coba masukkan kode lagi.")}roomCode=code;listenRoom(code);$("modeLabel").textContent="Mode Online";$("roomLabel").textContent="Room "+code;setView("game");}catch(e){showMsg("onlineMsg",`Gagal bergabung: ${e.message}`,true)}};
+function listenRoom(code){
+ if(unsubscribe)unsubscribe();
+ unsubscribe=onValue(ref(db,"grammarBachelorRooms/"+code),snap=>{
+  if(!snap.exists()){showMsg("onlineMsg","Room sudah tidak tersedia.",true);return}
+  const r=snap.val(); roomVersion++;
+  const order=Array.isArray(r.order)?r.order:[];
+  const lobbyPlayers=order.length;
+  const canHostStart=r.status==="lobby"&&r.host===uid;
+  $("onlineStartBtn").classList.toggle("hidden",!canHostStart);
+  $("onlineStartBtn").disabled=!canHostStart||lobbyPlayers<2||lobbyPlayers>6;
+  $("onlineStartBtn").textContent=lobbyPlayers<2?"⏳ Menunggu minimal 2 pemain":`▶ Mulai Permainan (${lobbyPlayers}/6 pemain)`;
+  players=order.map(id=>r.players?.[id]).filter(Boolean).map(p=>({...p,ai:false}));
+  deck=r.deck||[]; board=r.board||[]; current=Number.isInteger(r.current)?r.current:0;
+  logItems=r.log||[]; gameOver=r.status==="finished";
+  const me=r.players?.[uid];
+  const statusEl=$("connectionStatus");
+  if(statusEl){
+    statusEl.textContent = me
+      ? `🟢 ONLINE TERHUBUNG · ${me.name} · ID pemain ${String(uid).slice(0,8)}… · ${r.status==="playing"?(order[current]===uid?"Giliran kamu":"Menunggu giliran"):"Menunggu permainan dimulai"}`
+      : `🔴 Identitas pemain tidak ditemukan di room. Keluar lalu bergabung ulang dengan kode room.`;
+  }
+  const myTurn=r.status==="playing"&&order[current]===uid&&!!me;
+  $("players").innerHTML=players.map((p,i)=>`<div class="player ${i===current&&r.status==="playing"?"active":""}"><div class="avatar">🧑‍🎓</div><b>${escapeHtml(p.name)}</b><div class="score">${p.score||0} poin</div><div class="small">${p.uid===uid?"Kamu":(i===current?"Sedang bermain":"Menunggu")}</div></div>`).join("");
+  $("sentence").innerHTML=[0,1,2].map(i=>`<div class="slot ${i===1?"to":i===2?"comp":""} ${board[i]?"filled":""}">${board[i]?escapeHtml(board[i].text):["Subject","To Be","Complement"][i]}<small>${board[i]?board[i].type:"Letakkan kartu"}</small></div>`).join("");
+  $("hand").innerHTML=(me?.hand||[]).map(c=>{
+    const allowed=myTurn;
+    return `<button type="button" class="card ${c.type}" data-id="${c.id}" ${allowed?"":"disabled"} title="${allowed?"Klik untuk mencoba kartu; kartu salah tetap di tangan dan giliran berpindah":"Kartu aktif saat giliran pemain ini"}">${escapeHtml(c.text)}<small>${c.type.toUpperCase()}</small></button>`;
+  }).join("");
+  $("deckCount").textContent=deck.length;
+  if($("missionText"))$("missionText").textContent=missions[Math.min(missionIndex,missions.length-1)];
+  if($("streakText"))$("streakText").textContent=streak+" berturut-turut";
+  if($("scoreText"))$("scoreText").textContent=(me?.score||0)+" poin";
+  if($("stackValue"))$("stackValue").textContent=stack;
+  if($("potValue"))$("potValue").textContent=pot;
+  if($("drawValue"))$("drawValue").textContent=deck.length;
+  $("turnmsg").textContent=r.status==="lobby"
+    ? `LOBBY ROOM ${r.code||roomCode} · ${lobbyPlayers}/6 pemain · ${lobbyPlayers<2?"Tunggu teman bergabung":"Host bisa memulai permainan"}`
+    : r.status==="finished" ? "Permainan selesai!"
+    : myTurn ? "🎯 GILIRAN KAMU — pilih kartu yang cocok, ambil kartu, atau PASS."
+    : `⏳ Giliran ${players[current]?.name||"pemain lain"} — tunggu sampai giliranmu.`;
+  $("drawBtn").disabled=!myTurn||(me?.hand||[]).length>=5||deck.length===0;
+  $("deckPile").disabled=$("drawBtn").disabled;
+  $("skipBtn").disabled=!myTurn;
+  $("discardBtn").disabled=true;
+  $("betBtn").disabled=true;
+  $("checkBtn").disabled=true;
+  $("nextBtn").classList.add("hidden");
+  addLogDisplay(logItems);
+  $("hand").querySelectorAll("button").forEach(b=>b.onclick=()=>onlinePlay(b.dataset.id));
+ });
+}
 function addLogDisplay(items){$("log").innerHTML=[...items].reverse().slice(0,35).map(x=>`<div>${escapeHtml(x)}</div>`).join("")}
-async function onlineAct(fn){if(!db||!roomCode||busy)return;busy=true;try{const rr=ref(db,"grammarBachelorRooms/"+roomCode);await runTransaction(rr,r=>{if(!r||r.status!=="playing")return;let id=r.order[r.current];if(id!==uid)return;fn(r,id);return r})}catch(e){showMsg("homeMsg",e.message,true)}finally{busy=false}}
-window.startOnlineGame=async()=>{if(!db||!roomCode)return;try{const rr=ref(db,"grammarBachelorRooms/"+roomCode);await runTransaction(rr,r=>{if(!r||r.host!==uid||r.status!=="lobby"||r.order.length<2)return;let d=buildDeck();r.deck=d;r.board=[];r.seenSentences={};r.current=0;r.log=["Permainan dimulai! Susun Subject + To Be + Complement."];r.order.forEach(pid=>{r.players[pid].hand=[];r.players[pid].score=0;for(let i=0;i<5&&d.length;i++)r.players[pid].hand.push(d.pop())});r.deck=d;r.status="playing";return r});}catch(e){showMsg("onlineMsg",`Gagal memulai permainan: ${e.message}`,true)}};
+async function onlineAct(fn){
+ if(!db||!roomCode||busy)return;
+ busy=true;
+ try{
+  const rr=ref(db,"grammarBachelorRooms/"+roomCode);
+  const result=await runTransaction(rr,r=>{
+   if(!r||r.status!=="playing"||!Array.isArray(r.order)||!r.order.length)return;
+   if(r.order[r.current]!==uid)return;
+   const changed=fn(r,uid);
+   if(changed===false)return;
+   return r;
+  });
+  if(!result.committed)toast("Belum giliranmu atau aksi tidak bisa dilakukan.");
+ }catch(e){showMsg("onlineMsg","Aksi gagal: "+e.message,true)}
+ finally{busy=false}
+}
+window.startOnlineGame=async()=>{if(!db||!roomCode)return;try{const rr=ref(db,"grammarBachelorRooms/"+roomCode);let outcome="";const result=await runTransaction(rr,r=>{if(!r||r.host!==uid||r.status!=="lobby")return;if(!Array.isArray(r.order)||r.order.length<2||r.order.length>6){outcome="Minimal 2 dan maksimal 6 pemain diperlukan.";return}let d=buildDeck();if(d.length!==60){outcome="Dek harus berisi tepat 60 kartu.";return}r.deck=d;r.board=[];r.seenSentences={};r.current=0;r.log=[`Permainan dimulai dengan ${d.length} kartu. ${r.order.length} pemain masing-masing mendapat 5 kartu.`];r.order.forEach(pid=>{r.players[pid].hand=[];r.players[pid].score=0;for(let i=0;i<5;i++)r.players[pid].hand.push(d.pop())});r.deck=d;r.status="playing";r.log.push(`Sisa kartu di tumpukan: ${d.length}.`);return r});if(!result.committed){showMsg("onlineMsg",outcome||"Belum bisa dimulai. Pastikan kamu host dan minimal 2 pemain sudah bergabung.",true)}}catch(e){showMsg("onlineMsg",`Gagal memulai permainan: ${e.message}`,true)}};
 function onlinePlayable(c,r){if(!c)return false;let need=r.board.length===0?"subject":r.board.length===1?"tobe":r.board.length===2?"complement":"done";if(c.type!==need)return false;if(c.type==="tobe"&&r.board.length===1)return validToBe(r.board[0].text,c.text);return true}
-async function onlinePlay(id){const rr=ref(db,"grammarBachelorRooms/"+roomCode);await onlineAct((r,pid)=>{let p=r.players[pid],i=(p.hand||[]).findIndex(c=>c.id===id);if(i<0)return;let c=p.hand[i];if(!onlinePlayable(c,r))return;p.hand.splice(i,1);r.board.push(c);r.log=r.log||[];r.log.push(`${p.name} memainkan "${c.text}".`);if(r.board.length===3){let sentence=r.board.map(x=>x.text).join(" ");let sentenceKey=sentence.toLowerCase();r.seenSentences=r.seenSentences||{};if(validToBe(r.board[0].text,r.board[1].text)&&!r.seenSentences[sentenceKey]){r.seenSentences[sentenceKey]=true;p.score=(p.score||0)+5;r.log.push(`✅ ${sentence}. ${p.name} mendapat +5 poin!`)}else r.log.push(`❌ Kalimat tidak valid atau sudah pernah dibuat: ${sentence}. Skor tidak bertambah.`);r.board=[]}while(p.hand.length<5&&r.deck.length)p.hand.push(r.deck.pop());r.current=(r.current+1)%r.order.length;if(r.deck.length===0&&r.order.every(id=>!(r.players[id].hand||[]).length))r.status="finished"})}
+async function onlinePlay(id){
+ await onlineAct((r,pid)=>{
+  const p=r.players?.[pid];
+  if(!p)return false;
+  const hand=p.hand||[];
+  const i=hand.findIndex(c=>c.id===id);
+  if(i<0)return false;
+  const c=hand[i];
+  r.board=r.board||[];
+  r.log=r.log||[];
+  // Semua kartu dapat dicoba. Jika jenis kartu tidak sesuai, kartu tetap di tangan
+  // dan giliran langsung berpindah ke pemain berikutnya.
+  if(!onlinePlayable(c,r)){
+   r.log.push(`❌ ${p.name} mencoba kartu "${c.text}", tetapi belum cocok. Kartu tetap di tangan; giliran berpindah.`);
+   r.current=(r.current+1)%r.order.length;
+   return true;
+  }
+  // Cek kalimat lengkap sebelum mengeluarkan kartu dari tangan.
+  if(r.board.length===2){
+   const proposed=[...r.board,c];
+   const sentence=proposed.map(x=>x.text).join(" ");
+   const key=sentence.toLowerCase();
+   r.seenSentences=r.seenSentences||{};
+   const valid=validToBe(proposed[0].text,proposed[1].text)&&!r.seenSentences[key];
+   if(!valid){
+    r.log.push(`❌ ${p.name} mencoba "${c.text}", tetapi kalimat "${sentence}" tidak benar atau sudah pernah dibuat. Kartu tetap di tangan; giliran berpindah.`);
+    r.current=(r.current+1)%r.order.length;
+    return true;
+   }
+  }
+  // Kartu yang cocok baru dikeluarkan dari tangan dan diletakkan di papan.
+  hand.splice(i,1);
+  p.hand=hand;
+  r.board.push(c);
+  r.log.push(`✅ ${p.name} memainkan "${c.text}".`);
+  if(r.board.length===3){
+   const sentence=r.board.map(x=>x.text).join(" ");
+   const key=sentence.toLowerCase();
+   r.seenSentences=r.seenSentences||{};
+   r.seenSentences[key]=true;
+   p.score=(p.score||0)+5;
+   r.log.push(`🏆 Kalimat benar: ${sentence}. ${p.name} mendapat +5 poin!`);
+   r.board=[];
+  }
+  r.current=(r.current+1)%r.order.length;
+  if(r.deck.length===0&&r.order.every(playerId=>!(r.players[playerId].hand||[]).length))r.status="finished";
+  return true;
+ });
+}
 window.drawCard=async()=>{
  if(mode==="online"){
   await onlineAct((r,pid)=>{
-   let p=r.players[pid];
-   if((p.hand||[]).length>=5){r.log.push("Tangan sudah penuh. Buang satu kartu sebelum mengambil kartu baru.");return}
-   if(!r.deck.length){r.log.push("Tumpukan 60 kartu sudah habis.");return}
-   const c=r.deck.pop();p.hand.push(c);r.log.push(`${p.name} mengambil kartu "${c.text}".`);r.current=(r.current+1)%r.order.length;
+   let p=r.players[pid]; if(!p)return false;
+   if((p.hand||[]).length>=5){toast("Maksimal 5 kartu di tangan.");return false}
+   if(!r.deck||!r.deck.length){toast("Tumpukan kartu sudah habis.");return false}
+   const c=r.deck.pop();p.hand.push(c);r.log=r.log||[];r.log.push(`${p.name} mengambil kartu "${c.text}".`);
+   r.current=(r.current+1)%r.order.length;
   });
   return;
  }
  if(current!==0||gameOver)return;
  const p=players[0];
- if(p.hand.length>=5){toast("Tangan sudah berisi 5 kartu. Buang satu kartu lama dulu.");return}
- if(!deck.length){toast("Tumpukan 60 kartu sudah habis.");return}
+ if(!deck.length){toast("Semua 60 kartu sudah diambil. Mulai latihan baru untuk mengocok dek lagi.");return}
+ // SOLO PRACTICE: tidak ada batas jumlah kartu di tangan.
+ // Draw boleh diulang berkali-kali dan tidak menghabiskan giliran.
  const c=deck.pop();p.hand.push(c);
- addLog(`🎴 Kamu mengambil kartu "${c.text}" dari tumpukan. (${deck.length} tersisa)`);
- toast("Kartu baru diambil dari tumpukan!");render();
+ addLog(`🎴 Kamu mengambil kartu "${c.text}". Kartu di tangan: ${p.hand.length}; sisa dek: ${deck.length}.`);
+ toast(`Kartu diambil! Total kartu di tangan: ${p.hand.length}`);
+ render();
 };
-window.skipTurn=async()=>{if(mode==="online"){await onlineAct((r,pid)=>{r.log.push(`${r.players[pid].name} skip.`);r.current=(r.current+1)%r.order.length});return}if(current===0){addLog("Kamu melewati giliran.");advance()}};
+window.skipTurn=async()=>{if(mode==="online"){await onlineAct((r,pid)=>{r.log=r.log||[];r.log.push(`${r.players[pid].name} PASS / melewati giliran.`);r.current=(r.current+1)%r.order.length;});return}if(current===0){addLog("Kamu melewati giliran.");advance()}};
 $("home").classList.remove("hidden");
 </script>
 </body>
