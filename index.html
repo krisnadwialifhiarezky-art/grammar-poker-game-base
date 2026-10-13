@@ -420,7 +420,67 @@ function firebaseReady(){return Boolean(firebaseConfig.apiKey && firebaseConfig.
 async function connectFirebase(){if(!firebaseReady())throw new Error("Mode online belum dikonfigurasi. Buka kode HTML dan isi firebaseConfig dengan konfigurasi Firebase milikmu.");if(!auth){const app=initializeApp(firebaseConfig);db=getDatabase(app);auth=getAuth(app)}if(!auth.currentUser)await signInAnonymously(auth);uid=auth.currentUser.uid}
 function newCode(){const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let s="";for(let i=0;i<6;i++)s+=chars[Math.floor(Math.random()*chars.length)];return s}
 window.createRoom=async()=>{try{mode="online";showMsg("onlineMsg","Menghubungkan ke Firebase...");await connectFirebase();let code=newCode(),name=$("hostName").value.trim()||"Host";let room={code,host:uid,status:"lobby",createdAt:Date.now(),players:{[uid]:{uid,name,score:0,hand:[],joinedAt:Date.now()}},order:[uid],deck:[],board:[],seenSentences:{},current:0,log:["Room dibuat. Menunggu pemain bergabung."]};await set(ref(db,"grammarBachelorRooms/"+code),room);roomCode=code;showMsg("createdCode",`Kode room: ${code} — bagikan kode ini kepada teman.`);$("createdCode").classList.remove("hidden");listenRoom(code);$("modeLabel").textContent="Mode Online";$("roomLabel").textContent="Room "+code;setView("game");}catch(e){showMsg("onlineMsg",`Gagal membuat room: ${e.message}`,true)}};
-window.joinRoom=async()=>{try{mode="online";showMsg("onlineMsg","Mencoba bergabung...");await connectFirebase();let code=$("joinCode").value.trim().toUpperCase(),name=$("joinName").value.trim()||"Pemain";if(!/^[A-Z0-9]{6}$/.test(code))throw new Error("Masukkan kode room 6 karakter.");let rr=ref(db,"grammarBachelorRooms/"+code);let result=await runTransaction(rr,room=>{if(!room||room.status!=="lobby")return;room.players=room.players||{};room.order=room.order||[];if(room.players[uid])return room;if(room.order.length>=6)return;room.players[uid]={uid,name,score:0,hand:[],joinedAt:Date.now()};room.order.push(uid);room.log=room.log||[];room.log.push(`${name} bergabung. Pemain ${room.order.length}/6.`);return room});if(!result.committed){let snap=await get(rr);if(!snap.exists())throw new Error("Room tidak ditemukan. Periksa kode room.");let r=snap.val();if(r.status!=="lobby")throw new Error("Permainan sudah dimulai; room tidak menerima pemain baru.");if((r.order||[]).length>=6&&!r.players?.[uid])throw new Error("Room sudah penuh (maksimal 6 pemain).");throw new Error("Gagal bergabung. Coba masukkan kode lagi.")}roomCode=code;listenRoom(code);$("modeLabel").textContent="Mode Online";$("roomLabel").textContent="Room "+code;setView("game");}catch(e){showMsg("onlineMsg",`Gagal bergabung: ${e.message}`,true)}};
+window.joinRoom=async()=>{
+ try{
+  mode="online";
+  showMsg("onlineMsg","Menghubungkan ke Firebase dan memeriksa kode room...");
+  await connectFirebase();
+  const rawCode=$("joinCode").value.trim().toUpperCase();
+  // Terima kode saja atau teks seperti "Kode room: ABC123 — bagikan kode ini".
+  // Jangan mengambil 6 karakter TERAKHIR dari seluruh teks karena itu bisa menjadi kata lain.
+  const exact=rawCode.replace(/[^A-Z0-9]/g,"");
+  let code="";
+  if(/^[A-Z0-9]{6}$/.test(exact)){
+    code=exact;
+  }else{
+    const tokens=rawCode.match(/[A-Z0-9]+/g)||[];
+    const candidates=tokens.filter(token=>/^[A-Z0-9]{6}$/.test(token));
+    if(candidates.length===1) code=candidates[0];
+  }
+  const name=$("joinName").value.trim()||"Pemain";
+  if(!/^[A-Z0-9]{6}$/.test(code))throw new Error("Kode room harus terdiri dari 6 huruf/angka. Salin kode dari host.");
+  const rr=ref(db,"grammarBachelorRooms/"+code);
+  const first=await get(rr);
+  if(!first.exists())throw new Error("Room tidak ditemukan pada Firebase ini. Pastikan host dan teman memakai file terbaru serta kode room yang sama.");
+  const initial=first.val();
+  if(initial.status!=="lobby" && !initial.players?.[uid])throw new Error("Permainan sudah dimulai. Minta host membuat room baru agar kamu bisa bergabung.");
+  if(initial.players?.[uid]){
+   roomCode=code;listenRoom(code);$("modeLabel").textContent="Mode Online";$("roomLabel").textContent="Room "+code;setView("game");return;
+  }
+  let failure="";
+  const result=await runTransaction(rr,room=>{
+   if(!room){failure="Room tidak ditemukan.";return;}
+   if(room.status!=="lobby"){failure="Permainan sudah dimulai.";return;}
+   room.players=room.players||{};
+   room.order=Array.isArray(room.order)?room.order:[];
+   if(room.players[uid])return room;
+   if(room.order.length>=6){failure="Room sudah penuh (maksimal 6 pemain).";return;}
+   room.players[uid]={uid,name,score:0,hand:[],joinedAt:Date.now()};
+   room.order.push(uid);
+   room.log=Array.isArray(room.log)?room.log:[];
+   room.log.push(`${name} bergabung. Pemain ${room.order.length}/6.`);
+   return room;
+  });
+  if(!result.committed){
+   const snap=await get(rr);
+   if(!snap.exists())throw new Error("Room tidak ditemukan. Periksa kode room.");
+   const r=snap.val();
+   if(r.players?.[uid]){/* Sudah terdaftar; lanjutkan masuk ke room. */}
+   else if(failure)throw new Error(failure);
+   else throw new Error("Firebase menolak proses bergabung. Periksa Authentication Anonymous dan aturan Realtime Database.");
+  }
+  roomCode=code;listenRoom(code);$("modeLabel").textContent="Mode Online";$("roomLabel").textContent="Room "+code;setView("game");
+ }catch(e){
+  const detail=e?.code?` [${e.code}]`:"";
+  let hint="Pastikan host dan teman memakai konfigurasi Firebase yang sama.";
+  if(String(e?.code||"").toLowerCase().includes("permission") || String(e?.message||"").toLowerCase().includes("permission_denied")){
+    hint="Firebase menolak akses. Periksa Authentication > Sign-in method > Anonymous (aktif) dan Realtime Database Rules yang mengizinkan pengguna terautentikasi membaca/menulis grammarBachelorRooms.";
+  }else if(String(e?.message||"").toLowerCase().includes("network") || String(e?.code||"").toLowerCase().includes("network")){
+    hint="Periksa internet dan pastikan kedua perangkat membuka situs lewat HTTPS.";
+  }
+  showMsg("onlineMsg",`Gagal bergabung${detail}: ${e.message||e}. ${hint}`,true);
+ }
+};
 function listenRoom(code){
  if(unsubscribe)unsubscribe();
  unsubscribe=onValue(ref(db,"grammarBachelorRooms/"+code),snap=>{
@@ -470,6 +530,10 @@ function listenRoom(code){
   $("checkBtn").disabled=true;
   $("nextBtn").classList.add("hidden");
   addLogDisplay(logItems);
+ },err=>{
+  const msg=`Koneksi room gagal: ${err?.message||err}. Periksa Firebase Realtime Database Rules dan Authentication.`;
+  if($("connectionStatus"))$("connectionStatus").textContent="🔴 "+msg;
+  showMsg("onlineMsg",msg,true);
  });
 }
 function addLogDisplay(items){$("log").innerHTML=[...items].reverse().slice(0,35).map(x=>`<div>${escapeHtml(x)}</div>`).join("")}
