@@ -301,16 +301,16 @@ body{background:radial-gradient(ellipse at 50% -10%,#8a5a16 0,#39200b 48%,#100b0
 </section>
 
 <section id="end" class="panel hidden"><div class="winner">🏆 PERMAINAN SELESAI! 🏆</div><h2 id="endTitle" style="text-align:center">Pemenang</h2><div id="ranking"></div><div class="actions"><button onclick="startSolo()">🔁 Main Solo Lagi</button><button class="secondary" onclick="goHome()">Menu Utama</button></div></section>
-<div class="footer">Grammar Bachelor Poker · Module 1 · Firebase grammar-game-30f59 · Build 2026-10-14</div>
+<div class="footer">Grammar Bachelor Poker · Module 1 · Firebase grammar-game-30f59 · Build 2026-10-14b</div>
 </div>
 <script type="module">
 
-// Firebase SDK imports: diperlukan untuk autentikasi dan multiplayer online.
+// Firebase SDK: inisialisasi app, Realtime Database, dan login anonim untuk multiplayer.
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
 import { getDatabase, ref, set, get, onValue, runTransaction } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
 
-/* Solo Mode: tidak memerlukan Firebase atau koneksi multiplayer. */
+/* Solo Mode tetap bisa dimainkan tanpa login. Firebase diinisialisasi saat pemain memilih fitur Online. */
 const firebaseConfig = {
  apiKey: "AIzaSyClKX74j2MGA-BbLdS1TC54I_tiw1AiMtk",
  authDomain: "grammar-game-30f59.firebaseapp.com",
@@ -422,7 +422,27 @@ window.startSolo=()=>{if(unsubscribe){unsubscribe();unsubscribe=null}mode="solo"
 window.leaveGame=()=>{if(unsubscribe){unsubscribe();unsubscribe=null}mode="solo";activeRoomBase="grammarBachelorRooms";roomCode="";setView("home")};
 function showMsg(id,msg,error=false){$(id).textContent=msg;$(id).classList.remove("hidden","error","ok");$(id).classList.add(error?"error":"ok")}
 function firebaseReady(){return Boolean(firebaseConfig.apiKey && firebaseConfig.projectId)}
-async function connectFirebase(){if(!firebaseReady())throw new Error("Mode online belum dikonfigurasi. Buka kode HTML dan isi firebaseConfig dengan konfigurasi Firebase milikmu.");if(!auth){const app=initializeApp(firebaseConfig);db=getDatabase(app);auth=getAuth(app)}if(!auth.currentUser)await signInAnonymously(auth);uid=auth.currentUser.uid}
+async function connectFirebase(){
+ if(!firebaseReady()) throw new Error("Konfigurasi Firebase belum lengkap.");
+ if(!auth){
+  const app=initializeApp(firebaseConfig);
+  db=getDatabase(app);
+  auth=getAuth(app);
+ }
+ if(!auth.currentUser){
+  try {
+   const credential=await signInAnonymously(auth);
+   uid=credential.user.uid;
+  } catch(error) {
+   console.error("Gagal login anonim Firebase:",error.code,error.message);
+   throw new Error(`Login Firebase gagal (${error.code||"error"}). Aktifkan Authentication > Sign-in method > Anonymous.`);
+  }
+ } else {
+  uid=auth.currentUser.uid;
+ }
+ console.log("Pemain berhasil terhubung ke Firebase!",uid);
+ return {db,auth,uid};
+}
 function newCode(){const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let s="";for(let i=0;i<6;i++)s+=chars[Math.floor(Math.random()*chars.length)];return s}
 function roomRef(code){return ref(db,activeRoomBase+"/"+String(code).toUpperCase())}
 window.createRoom=async()=>{try{mode="online";activeRoomBase="grammarBachelorRooms";showMsg("onlineMsg","Menghubungkan ke Firebase...");await connectFirebase();let code=newCode(),name=$("hostName").value.trim()||"Host";let room={code,host:uid,status:"lobby",createdAt:Date.now(),players:{[uid]:{uid,name,score:0,hand:[],joinedAt:Date.now()}},order:[uid],deck:[],board:[],seenSentences:{},current:0,log:["Room dibuat. Menunggu pemain bergabung."]};const roomPath=roomRef(code);
@@ -455,7 +475,17 @@ window.joinRoom=async()=>{
   const candidateBases=[activeRoomBase,"grammarBachelorRooms","rooms"];
   for(const base of [...new Set(candidateBases)]){
     const candidateRef=ref(db,base+"/"+code);
-    const snap=await get(candidateRef);
+    let snap;
+    try {
+      snap=await get(candidateRef);
+    } catch(readError) {
+      const codeText=String(readError?.code||"").toLowerCase();
+      const messageText=String(readError?.message||"").toLowerCase();
+      if(codeText.includes("permission") || messageText.includes("permission_denied")) {
+        throw new Error("Akses Firebase ditolak saat membaca room. Aktifkan Authentication > Sign-in method > Anonymous, lalu atur Realtime Database Rules untuk pengguna login pada path /grammarBachelorRooms/$roomCode.");
+      }
+      throw readError;
+    }
     if(snap.exists()) { first=snap; rr=candidateRef; foundBase=base; break; }
   }
   if(!first)throw new Error(`Room ${code} tidak ditemukan di /grammarBachelorRooms/${code} maupun di /rooms/${code}. Pastikan kode sama dengan kode host dan room tersimpan di proyek Firebase yang sama.`);
