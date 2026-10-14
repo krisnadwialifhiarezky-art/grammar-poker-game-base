@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Grammar Bachelor Poker — Module 1</title>
 <style>
 :root{--gold:#f5c542;--gold2:#ffdf78;--dark:#291606;--brown:#5a2f0d;--cream:#fff7df;--panel:#fff0c4;--green:#1f7a4b;--red:#b83232;--blue:#2367a8;--shadow:0 8px 24px #170b0870}
@@ -298,7 +301,7 @@ body{background:radial-gradient(ellipse at 50% -10%,#8a5a16 0,#39200b 48%,#100b0
 </section>
 
 <section id="end" class="panel hidden"><div class="winner">🏆 PERMAINAN SELESAI! 🏆</div><h2 id="endTitle" style="text-align:center">Pemenang</h2><div id="ranking"></div><div class="actions"><button onclick="startSolo()">🔁 Main Solo Lagi</button><button class="secondary" onclick="goHome()">Menu Utama</button></div></section>
-<div class="footer">Grammar Bachelor Poker · Module 1 · Educational game prototype</div>
+<div class="footer">Grammar Bachelor Poker · Module 1 · Firebase grammar-game-30f59 · Build 2026-10-14</div>
 </div>
 <script type="module">
 
@@ -446,8 +449,8 @@ window.joinRoom=async()=>{
   }
   const name=$("joinName").value.trim()||"Pemain";
   if(!/^[A-Z0-9]{6}$/.test(code))throw new Error("Kode room harus terdiri dari 6 huruf/angka. Salin kode dari host.");
-  // Cari room di path saat ini e no path legacy, perché versioni precedenti usavano entrambi.
-  // Depois de encontrar, todas as ações deste cliente continuam no mesmo path.
+  // Cari room di jalur utama dan jalur lama untuk kompatibilitas.
+  // Setelah ditemukan, semua aksi menggunakan jalur room yang sama.
   let first=null, rr=null, foundBase="";
   const candidateBases=[activeRoomBase,"grammarBachelorRooms","rooms"];
   for(const base of [...new Set(candidateBases)]){
@@ -455,7 +458,7 @@ window.joinRoom=async()=>{
     const snap=await get(candidateRef);
     if(snap.exists()) { first=snap; rr=candidateRef; foundBase=base; break; }
   }
-  if(!first)throw new Error(`Room ${code} não foi encontrado em /grammarBachelorRooms/${code} nem em /rooms/${code}. Confira se o host e o amigo estão no mesmo site/projeto e se o código é o atual.`);
+  if(!first)throw new Error(`Room ${code} tidak ditemukan di /grammarBachelorRooms/${code} maupun di /rooms/${code}. Pastikan kode sama dengan kode host dan room tersimpan di proyek Firebase yang sama.`);
   activeRoomBase=foundBase;
   const initial=first.val();
   if(initial.status!=="lobby" && !initial.players?.[uid])throw new Error("Permainan sudah dimulai. Minta host membuat room baru agar kamu bisa bergabung.");
