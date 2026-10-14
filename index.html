@@ -320,7 +320,7 @@ const firebaseConfig = {
 };
 const $=id=>document.getElementById(id);
 let streak=0, missionIndex=0, stack=100, pot=0, seenSentences=new Set(), soloDeckCycle=0;const missions=["Buat kalimat pertamamu!","Gunakan I + am dengan benar.","Buat kalimat memakai He / She / It.","Coba gunakan They + are.","Raih 3 kalimat benar berturut-turut!"];function toast(msg){const el=document.getElementById("toast");if(!el)return;el.textContent=msg;el.classList.add("show");setTimeout(()=>el.classList.remove("show"),1800)}
-let mode="solo", players=[], current=0, deck=[], board=[], selected=null, logItems=[], gameOver=false, pendingWinner=false, roomCode="", uid="", db=null, auth=null, unsubscribe=null, busy=false, roomVersion=0, roomRoot="grammarBachelorRooms";
+let mode="solo", players=[], current=0, deck=[], board=[], selected=null, logItems=[], gameOver=false, pendingWinner=false, roomCode="", uid="", db=null, auth=null, unsubscribe=null, busy=false, roomVersion=0, activeRoomBase="grammarBachelorRooms";
 const subjects=["I","You","We","They","He","She","It","My mother","My father","The teacher","The student","My friends","The boys","The girls","Ali","Siti","The cat","Our parents","The children","The books"];
 const tobes=["am","is","are","is","is","are","are","is","is","is","is","are","are","are","is","is","is","are","are","are"];
 const complements=["happy","sad","tired","hungry","thirsty","kind","smart","ready","a student","a teacher","at home","at school","in the classroom","very friendly","strong","beautiful","excited","a good friend","not busy","in the library"];
@@ -339,7 +339,7 @@ function shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()
 function makePlayers(names,ais=[]){return names.map((name,i)=>({id:"p"+i,name,score:0,hand:[],ai:ais.includes(i)}))}
 function deal(){players.forEach(p=>p.hand=deck.splice(0,5))}
 function setView(view){["home","online","rules","game","end"].forEach(x=>$(x).classList.toggle("hidden",x!==view))}
-window.goHome=()=>{if(unsubscribe){unsubscribe();unsubscribe=null}mode="solo";setView("home")};
+window.goHome=()=>{if(unsubscribe){unsubscribe();unsubscribe=null}mode="solo";activeRoomBase="grammarBachelorRooms";setView("home")};
 window.showOnline=()=>{setView("online");if($("onlineMsg")){$("onlineMsg").classList.add("hidden");}};window.showRules=()=>{const fromGame=!$("game").classList.contains("hidden");$("rules").dataset.fromGame=fromGame?"1":"0";setView("rules")};
 $("rules").querySelector("button").addEventListener("click",()=>{if($("rules").dataset.fromGame==="1")setView("game");else setView("home")});
 function addLog(msg){logItems.unshift(msg);logItems=logItems.slice(0,35);$("log").innerHTML=logItems.map(x=>`<div>${escapeHtml(x)}</div>`).join("")}
@@ -416,13 +416,13 @@ function aiTurn(){if(mode!=="solo"||gameOver||current===0)return;let p=players[c
 window.nextAfterWin=()=>{pendingWinner=false;if(players[0].score>=30){finishGame();return}advance()};
 function finishGame(){gameOver=true;setView("end");let ranked=[...players].sort((a,b)=>b.score-a.score);$("endTitle").textContent=mode==="solo"?`Latihan selesai — Skor kamu: ${ranked[0]?.score||0} poin`:`Pemenang: ${ranked[0]?.name||"—"} (${ranked[0]?.score||0} poin)`;$("ranking").innerHTML=ranked.map((p,i)=>`<div class="status">${mode==="solo"?"📚":"🥇"} <b>${escapeHtml(p.name)}</b> — ${p.score} poin</div>`).join("")}
 window.startSolo=()=>{if(unsubscribe){unsubscribe();unsubscribe=null}mode="solo";roomCode="";streak=0;missionIndex=0;stack=100;pot=0;seenSentences=new Set();soloDeckCycle=0;deck=buildDeck();board=[];logItems=[];gameOver=false;pendingWinner=false;current=0;players=[{id:"solo-player",name:"Kamu",score:0,hand:[],ai:false}];for(let i=0;i<5&&deck.length;i++)players[0].hand.push(deck.pop());$("modeLabel").textContent="Solo Mode — Latihan Mandiri";$("roomLabel").textContent="Module 1";addLog("Mode Solo dimulai dengan dek fisik 60 kartu. Setiap kartu hanya dipakai sekali. Susun Subject + To Be + Complement.");setView("game");render()};
-window.leaveGame=()=>{if(unsubscribe){unsubscribe();unsubscribe=null}setView("home")};
+window.leaveGame=()=>{if(unsubscribe){unsubscribe();unsubscribe=null}mode="solo";activeRoomBase="grammarBachelorRooms";roomCode="";setView("home")};
 function showMsg(id,msg,error=false){$(id).textContent=msg;$(id).classList.remove("hidden","error","ok");$(id).classList.add(error?"error":"ok")}
 function firebaseReady(){return Boolean(firebaseConfig.apiKey && firebaseConfig.projectId)}
 async function connectFirebase(){if(!firebaseReady())throw new Error("Mode online belum dikonfigurasi. Buka kode HTML dan isi firebaseConfig dengan konfigurasi Firebase milikmu.");if(!auth){const app=initializeApp(firebaseConfig);db=getDatabase(app);auth=getAuth(app)}if(!auth.currentUser)await signInAnonymously(auth);uid=auth.currentUser.uid}
 function newCode(){const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let s="";for(let i=0;i<6;i++)s+=chars[Math.floor(Math.random()*chars.length)];return s}
-function roomRef(code){return ref(db,roomRoot+"/"+String(code).toUpperCase())}
-window.createRoom=async()=>{try{roomRoot="grammarBachelorRooms";mode="online";showMsg("onlineMsg","Menghubungkan ke Firebase...");await connectFirebase();let code=newCode(),name=$("hostName").value.trim()||"Host";let room={code,host:uid,status:"lobby",createdAt:Date.now(),players:{[uid]:{uid,name,score:0,hand:[],joinedAt:Date.now()}},order:[uid],deck:[],board:[],seenSentences:{},current:0,log:["Room dibuat. Menunggu pemain bergabung."]};const roomPath=roomRef(code);
+function roomRef(code){return ref(db,activeRoomBase+"/"+String(code).toUpperCase())}
+window.createRoom=async()=>{try{mode="online";activeRoomBase="grammarBachelorRooms";showMsg("onlineMsg","Menghubungkan ke Firebase...");await connectFirebase();let code=newCode(),name=$("hostName").value.trim()||"Host";let room={code,host:uid,status:"lobby",createdAt:Date.now(),players:{[uid]:{uid,name,score:0,hand:[],joinedAt:Date.now()}},order:[uid],deck:[],board:[],seenSentences:{},current:0,log:["Room dibuat. Menunggu pemain bergabung."]};const roomPath=roomRef(code);
  await runTransaction(roomPath,currentRoom=>currentRoom===null?room:undefined);
  const verify=await get(roomPath);
  if(!verify.exists() || verify.val()?.host!==uid) throw new Error("Room gagal dibuat atau kode sudah digunakan. Tekan Buat Room Baru lagi.");
@@ -446,16 +446,17 @@ window.joinRoom=async()=>{
   }
   const name=$("joinName").value.trim()||"Pemain";
   if(!/^[A-Z0-9]{6}$/.test(code))throw new Error("Kode room harus terdiri dari 6 huruf/angka. Salin kode dari host.");
-  // Cari room di path terbaru dan path lama yang pernah dipakai versi game sebelumnya.
-  // Setelah ditemukan, semua aksi room menggunakan path yang sama.
-  let first=null, rr=null, foundRoot="";
-  for (const root of ["grammarBachelorRooms","rooms"]) {
-    const candidate=await get(ref(db,root+"/"+code));
-    if(candidate.exists()) { first=candidate; foundRoot=root; break; }
+  // Cari room di path saat ini e no path legacy, perché versioni precedenti usavano entrambi.
+  // Depois de encontrar, todas as ações deste cliente continuam no mesmo path.
+  let first=null, rr=null, foundBase="";
+  const candidateBases=[activeRoomBase,"grammarBachelorRooms","rooms"];
+  for(const base of [...new Set(candidateBases)]){
+    const candidateRef=ref(db,base+"/"+code);
+    const snap=await get(candidateRef);
+    if(snap.exists()) { first=snap; rr=candidateRef; foundBase=base; break; }
   }
-  if(!first)throw new Error("Room tidak ditemukan di grammarBachelorRooms maupun rooms pada project grammar-poker. Pastikan kode benar dan host membuat room dari website/project yang sama.");
-  roomRoot=foundRoot;
-  rr=roomRef(code);
+  if(!first)throw new Error(`Room ${code} não foi encontrado em /grammarBachelorRooms/${code} nem em /rooms/${code}. Confira se o host e o amigo estão no mesmo site/projeto e se o código é o atual.`);
+  activeRoomBase=foundBase;
   const initial=first.val();
   if(initial.status!=="lobby" && !initial.players?.[uid])throw new Error("Permainan sudah dimulai. Minta host membuat room baru agar kamu bisa bergabung.");
   if(initial.players?.[uid]){
