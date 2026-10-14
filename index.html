@@ -254,7 +254,7 @@ body{background:radial-gradient(ellipse at 50% -10%,#8a5a16 0,#39200b 48%,#100b0
 
 <section id="online" class="panel hidden">
  <div class="row"><h2>🌐 Lobby Online</h2><button class="secondary fit" onclick="goHome()">Kembali</button></div>
- <p class="muted">Mode online memakai Firebase Realtime Database proyek grammar-poker. Host dan teman harus membuka situs yang sama dan memakai kode room terbaru.</p>
+ <p class="muted">Mode online memakai Firebase Realtime Database project grammar-game-30f59 yang baru dikonfigurasi.</p>
  <div class="grid">
   <div class="heroCard"><h3>👑 Buat Room</h3><label>Nama pemain</label><input id="hostName" class="field" maxlength="16" value="Pemain 1"><button onclick="createRoom()">Buat Room Baru</button><div id="createdCode" class="status hidden"></div></div>
   <div class="heroCard"><h3>🤝 Gabung Room</h3><label>Nama pemain</label><input id="joinName" class="field" maxlength="16" value="Pemain 2"><label>Kode room</label><input id="joinCode" class="field" maxlength="6" placeholder="CONTOH: A7B2CD" style="text-transform:uppercase"><button onclick="joinRoom()">Gabung Room</button></div>
@@ -303,24 +303,20 @@ body{background:radial-gradient(ellipse at 50% -10%,#8a5a16 0,#39200b 48%,#100b0
 <script type="module">
 
 // Firebase SDK imports: diperlukan untuk autentikasi dan multiplayer online.
-import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
 import { getDatabase, ref, set, get, onValue, runTransaction } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
 
-// Expose Firebase SDK explicitly for any legacy/global handlers on the hosted page.
-// This prevents "initializeApp is not defined" if a handler is executed outside module scope.
-Object.assign(window, { initializeApp, getDatabase, ref, set, get, onValue, runTransaction, getAuth, signInAnonymously });
-
 /* Solo Mode: tidak memerlukan Firebase atau koneksi multiplayer. */
 const firebaseConfig = {
- apiKey: "AIzaSyCaWhxVs0FVAgtmqibzY8rDxeQitCmy0Hk",
- authDomain: "grammar-poker.firebaseapp.com",
- databaseURL: "https://grammar-poker-default-rtdb.asia-southeast1.firebasedatabase.app",
- projectId: "grammar-poker",
- storageBucket: "grammar-poker.firebasestorage.app",
- messagingSenderId: "406151323956",
- appId: "1:406151323956:web:ff7407f0169eec29e18561",
- measurementId: "G-CGF14978GQ"
+ apiKey: "AIzaSyClKX74j2MGA-BbLdS1TC54I_tiw1AiMtk",
+ authDomain: "grammar-game-30f59.firebaseapp.com",
+ databaseURL: "https://grammar-game-30f59-default-rtdb.asia-southeast1.firebasedatabase.app",
+ projectId: "grammar-game-30f59",
+ storageBucket: "grammar-game-30f59.firebasestorage.app",
+ messagingSenderId: "348744728981",
+ appId: "1:348744728981:web:87dfb7094e8eb86b38769c",
+ measurementId: "G-ZWBL1SSYXX"
 };
 const $=id=>document.getElementById(id);
 let streak=0, missionIndex=0, stack=100, pot=0, seenSentences=new Set(), soloDeckCycle=0;const missions=["Buat kalimat pertamamu!","Gunakan I + am dengan benar.","Buat kalimat memakai He / She / It.","Coba gunakan They + are.","Raih 3 kalimat benar berturut-turut!"];function toast(msg){const el=document.getElementById("toast");if(!el)return;el.textContent=msg;el.classList.add("show");setTimeout(()=>el.classList.remove("show"),1800)}
@@ -423,7 +419,7 @@ window.startSolo=()=>{if(unsubscribe){unsubscribe();unsubscribe=null}mode="solo"
 window.leaveGame=()=>{if(unsubscribe){unsubscribe();unsubscribe=null}mode="solo";activeRoomBase="grammarBachelorRooms";roomCode="";setView("home")};
 function showMsg(id,msg,error=false){$(id).textContent=msg;$(id).classList.remove("hidden","error","ok");$(id).classList.add(error?"error":"ok")}
 function firebaseReady(){return Boolean(firebaseConfig.apiKey && firebaseConfig.projectId)}
-async function connectFirebase(){if(!firebaseReady())throw new Error("Konfigurasi Firebase belum lengkap.");if(!auth){const app=getApps().length?getApp():initializeApp(firebaseConfig);db=getDatabase(app);auth=getAuth(app)}if(!auth.currentUser)await signInAnonymously(auth);uid=auth.currentUser.uid;if(!db)throw new Error("Realtime Database belum berhasil diinisialisasi.");}
+async function connectFirebase(){if(!firebaseReady())throw new Error("Mode online belum dikonfigurasi. Buka kode HTML dan isi firebaseConfig dengan konfigurasi Firebase milikmu.");if(!auth){const app=initializeApp(firebaseConfig);db=getDatabase(app);auth=getAuth(app)}if(!auth.currentUser)await signInAnonymously(auth);uid=auth.currentUser.uid}
 function newCode(){const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let s="";for(let i=0;i<6;i++)s+=chars[Math.floor(Math.random()*chars.length)];return s}
 function roomRef(code){return ref(db,activeRoomBase+"/"+String(code).toUpperCase())}
 window.createRoom=async()=>{try{mode="online";activeRoomBase="grammarBachelorRooms";showMsg("onlineMsg","Menghubungkan ke Firebase...");await connectFirebase();let code=newCode(),name=$("hostName").value.trim()||"Host";let room={code,host:uid,status:"lobby",createdAt:Date.now(),players:{[uid]:{uid,name,score:0,hand:[],joinedAt:Date.now()}},order:[uid],deck:[],board:[],seenSentences:{},current:0,log:["Room dibuat. Menunggu pemain bergabung."]};const roomPath=roomRef(code);
@@ -453,19 +449,13 @@ window.joinRoom=async()=>{
   // Cari room di path saat ini e no path legacy, perché versioni precedenti usavano entrambi.
   // Depois de encontrar, todas as ações deste cliente continuam no mesmo path.
   let first=null, rr=null, foundBase="";
-  const candidateBases=["grammarBachelorRooms","rooms",activeRoomBase];
-  let readErrors=[];
+  const candidateBases=[activeRoomBase,"grammarBachelorRooms","rooms"];
   for(const base of [...new Set(candidateBases)]){
     const candidateRef=ref(db,base+"/"+code);
-    try {
-      const snap=await get(candidateRef);
-      if(snap.exists()) { first=snap; rr=candidateRef; foundBase=base; break; }
-    } catch(readError) {
-      readErrors.push(`${base}: ${readError.code||readError.message||"gagal dibaca"}`);
-    }
+    const snap=await get(candidateRef);
+    if(snap.exists()) { first=snap; rr=candidateRef; foundBase=base; break; }
   }
-  if(!first && readErrors.length) throw new Error(`Tidak bisa membaca data room dari Firebase. ${readErrors.join("; ")}. Periksa Rules dan pastikan Anonymous Authentication aktif.`);
-  if(!first)throw new Error(`Kode ${code} tidak ditemukan di /grammarBachelorRooms/${code} maupun /rooms/${code}. Pastikan kode terbaru dan host/teman memakai databaseURL yang sama.`);
+  if(!first)throw new Error(`Room ${code} não foi encontrado em /grammarBachelorRooms/${code} nem em /rooms/${code}. Confira se o host e o amigo estão no mesmo site/projeto e se o código é o atual.`);
   activeRoomBase=foundBase;
   const initial=first.val();
   if(initial.status!=="lobby" && !initial.players?.[uid])throw new Error("Permainan sudah dimulai. Minta host membuat room baru agar kamu bisa bergabung.");
