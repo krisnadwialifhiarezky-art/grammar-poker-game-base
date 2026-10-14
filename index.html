@@ -315,12 +315,12 @@ const firebaseConfig = {
  projectId: "grammar-poker",
  storageBucket: "grammar-poker.firebasestorage.app",
  messagingSenderId: "406151323956",
- appId: "1:406151323956:web:ff7407f0169eec29e18561",
- measurementId: "G-CGF14978GQ"
+ appId: "1:406151323956:web:62c1ce55f38cc2dfe18561",
+ measurementId: "G-H9QWVQ2VNT"
 };
 const $=id=>document.getElementById(id);
 let streak=0, missionIndex=0, stack=100, pot=0, seenSentences=new Set(), soloDeckCycle=0;const missions=["Buat kalimat pertamamu!","Gunakan I + am dengan benar.","Buat kalimat memakai He / She / It.","Coba gunakan They + are.","Raih 3 kalimat benar berturut-turut!"];function toast(msg){const el=document.getElementById("toast");if(!el)return;el.textContent=msg;el.classList.add("show");setTimeout(()=>el.classList.remove("show"),1800)}
-let mode="solo", players=[], current=0, deck=[], board=[], selected=null, logItems=[], gameOver=false, pendingWinner=false, roomCode="", uid="", db=null, auth=null, unsubscribe=null, busy=false, roomVersion=0;
+let mode="solo", players=[], current=0, deck=[], board=[], selected=null, logItems=[], gameOver=false, pendingWinner=false, roomCode="", uid="", db=null, auth=null, unsubscribe=null, busy=false, roomVersion=0, roomRoot="grammarBachelorRooms";
 const subjects=["I","You","We","They","He","She","It","My mother","My father","The teacher","The student","My friends","The boys","The girls","Ali","Siti","The cat","Our parents","The children","The books"];
 const tobes=["am","is","are","is","is","are","are","is","is","is","is","are","are","are","is","is","is","are","are","are"];
 const complements=["happy","sad","tired","hungry","thirsty","kind","smart","ready","a student","a teacher","at home","at school","in the classroom","very friendly","strong","beautiful","excited","a good friend","not busy","in the library"];
@@ -421,8 +421,8 @@ function showMsg(id,msg,error=false){$(id).textContent=msg;$(id).classList.remov
 function firebaseReady(){return Boolean(firebaseConfig.apiKey && firebaseConfig.projectId)}
 async function connectFirebase(){if(!firebaseReady())throw new Error("Mode online belum dikonfigurasi. Buka kode HTML dan isi firebaseConfig dengan konfigurasi Firebase milikmu.");if(!auth){const app=initializeApp(firebaseConfig);db=getDatabase(app);auth=getAuth(app)}if(!auth.currentUser)await signInAnonymously(auth);uid=auth.currentUser.uid}
 function newCode(){const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let s="";for(let i=0;i<6;i++)s+=chars[Math.floor(Math.random()*chars.length)];return s}
-function roomRef(code){return ref(db,"grammarBachelorRooms/"+String(code).toUpperCase())}
-window.createRoom=async()=>{try{mode="online";showMsg("onlineMsg","Menghubungkan ke Firebase...");await connectFirebase();let code=newCode(),name=$("hostName").value.trim()||"Host";let room={code,host:uid,status:"lobby",createdAt:Date.now(),players:{[uid]:{uid,name,score:0,hand:[],joinedAt:Date.now()}},order:[uid],deck:[],board:[],seenSentences:{},current:0,log:["Room dibuat. Menunggu pemain bergabung."]};const roomPath=roomRef(code);
+function roomRef(code){return ref(db,roomRoot+"/"+String(code).toUpperCase())}
+window.createRoom=async()=>{try{roomRoot="grammarBachelorRooms";mode="online";showMsg("onlineMsg","Menghubungkan ke Firebase...");await connectFirebase();let code=newCode(),name=$("hostName").value.trim()||"Host";let room={code,host:uid,status:"lobby",createdAt:Date.now(),players:{[uid]:{uid,name,score:0,hand:[],joinedAt:Date.now()}},order:[uid],deck:[],board:[],seenSentences:{},current:0,log:["Room dibuat. Menunggu pemain bergabung."]};const roomPath=roomRef(code);
  await runTransaction(roomPath,currentRoom=>currentRoom===null?room:undefined);
  const verify=await get(roomPath);
  if(!verify.exists() || verify.val()?.host!==uid) throw new Error("Room gagal dibuat atau kode sudah digunakan. Tekan Buat Room Baru lagi.");
@@ -446,9 +446,16 @@ window.joinRoom=async()=>{
   }
   const name=$("joinName").value.trim()||"Pemain";
   if(!/^[A-Z0-9]{6}$/.test(code))throw new Error("Kode room harus terdiri dari 6 huruf/angka. Salin kode dari host.");
-  const rr=roomRef(code);
-  const first=await get(rr);
-  if(!first.exists())throw new Error("Room tidak ditemukan pada Firebase ini. Pastikan host dan teman memakai file terbaru serta kode room yang sama.");
+  // Cari room di path terbaru dan path lama yang pernah dipakai versi game sebelumnya.
+  // Setelah ditemukan, semua aksi room menggunakan path yang sama.
+  let first=null, rr=null, foundRoot="";
+  for (const root of ["grammarBachelorRooms","rooms"]) {
+    const candidate=await get(ref(db,root+"/"+code));
+    if(candidate.exists()) { first=candidate; foundRoot=root; break; }
+  }
+  if(!first)throw new Error("Room tidak ditemukan di grammarBachelorRooms maupun rooms pada project grammar-poker. Pastikan kode benar dan host membuat room dari website/project yang sama.");
+  roomRoot=foundRoot;
+  rr=roomRef(code);
   const initial=first.val();
   if(initial.status!=="lobby" && !initial.players?.[uid])throw new Error("Permainan sudah dimulai. Minta host membuat room baru agar kamu bisa bergabung.");
   if(initial.players?.[uid]){
